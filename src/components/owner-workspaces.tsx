@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { money, date, dateTime } from "@/lib/utils";
@@ -100,6 +100,7 @@ export function OwnerReports() {
   const [detail, setDetail] = useState("sales"),
     [department, setDepartment] = useState("ALL"),
     [paymentMethod, setPaymentMethod] = useState("ALL");
+  const recordsRef = useRef<HTMLDivElement>(null);
   const search = new URLSearchParams(range).toString();
   const query = useQuery({
     queryKey: ["reports", range],
@@ -114,10 +115,23 @@ export function OwnerReports() {
   });
   const r = query.data,
     match = (d: string) => department === "ALL" || d === department;
+  const scrollToRecords = () => {
+    requestAnimationFrame(() => {
+      recordsRef.current?.scrollIntoView({
+        behavior:
+          typeof window !== "undefined" &&
+          window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+            ? "auto"
+            : "smooth",
+        block: "start",
+      });
+    });
+  };
   const drill = (next: string) => {
     setDetail(next);
     setDepartment("ALL");
     setPaymentMethod("ALL");
+    scrollToRecords();
   };
   return (
     <div className="space-y-5">
@@ -246,6 +260,7 @@ export function OwnerReports() {
                           setDepartment(d.department);
                           setPaymentMethod("ALL");
                           setDetail("sales");
+                          scrollToRecords();
                         }}
                       >
                         {d.department}
@@ -273,6 +288,7 @@ export function OwnerReports() {
                                 "outstanding",
                               ][i],
                             );
+                            scrollToRecords();
                           }}
                         >
                           {money(v)}
@@ -295,6 +311,7 @@ export function OwnerReports() {
                     setDetail("payments");
                     setDepartment("ALL");
                     setPaymentMethod(m.method);
+                    scrollToRecords();
                   }}
                 >
                   <strong>{m.method}</strong> {money(m.amountPaise)}
@@ -308,7 +325,11 @@ export function OwnerReports() {
               records. Payment records below show their source and allocation.
             </p>
           </div>
-          <div className="surface">
+          <div
+            ref={recordsRef}
+            id="supporting-records"
+            className="surface scroll-mt-6"
+          >
             <h3 className="font-semibold">Records supporting totals</h3>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="text-xs">
