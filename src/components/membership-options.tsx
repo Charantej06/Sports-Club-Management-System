@@ -29,7 +29,10 @@ export function MembershipOptions({
     queryFn: () => api<MeData>("/api/me"),
     enabled: signedIn,
   });
-  const [plan, setPlan] = useState<PlanView | null>(null);
+  // Keep only the plan id so a refresh after a price change swaps in the new price and version.
+  const [planId, setPlanId] = useState<string | null>(null);
+  const plan = plans.find((p) => p.id === planId) ?? null;
+  const [priceUpdated, setPriceUpdated] = useState(false);
   const [months, setMonths] = useState<TermMonths>(3);
   const [accepted, setAccepted] = useState(false);
   const [key, setKey] = useState("");
@@ -61,10 +64,19 @@ export function MembershipOptions({
           planVersion: plan?.planVersion,
         }),
       }),
+    onError: (error) => {
+      // The owner changed the plan while this page was open: fetch the new price rather than failing the customer.
+      if (/plan has changed|PLAN_CHANGED/i.test(error.message)) {
+        setPriceUpdated(true);
+        setAccepted(false);
+        setKey(crypto.randomUUID());
+        router.refresh();
+      }
+    },
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ["me"] });
       await client.invalidateQueries({ queryKey: ["card"] });
-      setPlan(null);
+      setPlanId(null);
       router.push("/account?membership=success");
       router.refresh();
     },
@@ -93,7 +105,8 @@ export function MembershipOptions({
                   mutation.reset();
                   setAccepted(false);
                   setKey(crypto.randomUUID());
-                  setPlan(p);
+                  setPlanId(p.id);
+                  setPriceUpdated(false);
                 }}
               >
                 {current?.planId === p.id
@@ -116,7 +129,7 @@ export function MembershipOptions({
       <Dialog.Root
         open={!!plan}
         onOpenChange={(open) => {
-          if (!open && !mutation.isPending) setPlan(null);
+          if (!open && !mutation.isPending) setPlanId(null);
         }}
       >
         <Dialog.Portal>
@@ -198,10 +211,16 @@ export function MembershipOptions({
                   : "I agree to the membership policy. Renewals extend my term; paid memberships are non-refundable except for a club cancellation."}
               </span>
             </label>
-            {mutation.error && (
-              <p role="alert" className="field-error mt-4">
-                {mutation.error.message}
+            {priceUpdated ? (
+              <p role="status" className="notice mt-4">
+                This plan&apos;s price was just updated. We&apos;ve refreshed it: please review the new total above and confirm again.
               </p>
+            ) : (
+              mutation.error && (
+                <p role="alert" className="field-error mt-4">
+                  {mutation.error.message}
+                </p>
+              )
             )}
             {!localMode && modes.data?.gateway ? (
               <div className="mt-6">
@@ -218,7 +237,7 @@ export function MembershipOptions({
                       },
                     }}
                     onDone={() => {
-                      setPlan(null);
+                      setPlanId(null);
                       router.push("/account?membership=success");
                       router.refresh();
                     }}

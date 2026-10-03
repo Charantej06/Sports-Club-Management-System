@@ -14,6 +14,11 @@ export function ShopView({ products }: { products: Products }) {
   const [sport, setSport] = useState("all");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
+  // Filters follow the products' sports: the club's usual order first, anything new alphabetically after.
+  const usual = ["tennis", "padel", "badminton", "cricket"];
+  const sportFilters = Array.from(new Set(products.map((p) => p.sport).filter((x) => x !== "all"))).sort(
+    (a, b) => (usual.indexOf(a) + 1 || 99) - (usual.indexOf(b) + 1 || 99) || a.localeCompare(b),
+  );
   const filtered = products.filter(
     (p) =>
       (sport === "all" || p.sport === sport) &&
@@ -58,7 +63,7 @@ export function ShopView({ products }: { products: Products }) {
 
           {/* Clean, high-contrast filter buttons without ugly orange */}
           <nav className="mb-7 mt-12 flex flex-wrap gap-3" aria-label="Filter products by sport">
-            {["all", ...Array.from(new Set(products.map((p) => p.sport).filter((s) => s !== "all")))].map((s) => (
+            {["all", ...sportFilters].map((s) => (
               <Button
                 key={s}
                 variant={s === sport ? "secondary" : "outline"}

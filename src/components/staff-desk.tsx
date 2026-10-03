@@ -37,6 +37,7 @@ import {
 import type { ClubSettings, MembershipPlan } from "@/generated/prisma/client";
 import { api } from "@/lib/api-client";
 import { money, date } from "@/lib/utils";
+import { TERM_LABELS, TERM_MONTHS, termPrice } from "@/modules/membership/terms";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
@@ -294,23 +295,26 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
       return client.invalidateQueries();
     },
   });
+  // [key, label, min, max, unit]: money fields are shown in rupees and rates in percent, but stored as paise / basis points.
   const fields = [
-    ["openHour", "Opening hour (0–22)", 0, 22],
-    ["closeHour", "Closing hour (1–24)", 1, 24],
-    ["bookingWindowDays", "Booking window · days", 1, 90],
-    ["dailySessionLimit", "Sessions per member per day", 1, 10],
-    ["holdMinutes", "Checkout hold · minutes", 1, 30],
-    ["cancellationHours", "Cancellation notice · hours", 0, 72],
-    ["waitOfferMinutes", "Waiting-list offer · minutes", 5, 240],
-    ["socialCapacity", "Social event capacity", 2, 50],
-    ["tabLimitPaise", "Member tab limit · paise", 0, 100000000],
-    ["trialDiscountBps", "Trial discount · basis points", 0, 10000],
-    ["socialPricePaise", "Social guest price · paise", 0, 1000000],
-    ["deliveryFeePaise", "Delivery fee · paise", 0, 1000000],
-    ["tabDueDays", "Member tab due · days", 1, 90],
-    ["reminderHour", "Reminder hour · Asia/Kolkata (0–23)", 0, 23],
-    ["payrollTaxBps", "Payroll withholding · basis points", 0, 10000],
+    ["openHour", "Opening hour (0–22)", 0, 22, "int"],
+    ["closeHour", "Closing hour (1–24)", 1, 24, "int"],
+    ["bookingWindowDays", "Booking window · days", 1, 90, "int"],
+    ["dailySessionLimit", "Sessions per member per day", 1, 10, "int"],
+    ["holdMinutes", "Checkout hold · minutes", 1, 30, "int"],
+    ["cancellationHours", "Cancellation notice · hours", 0, 72, "int"],
+    ["waitOfferMinutes", "Waiting-list offer · minutes", 5, 240, "int"],
+    ["socialCapacity", "Social event capacity", 2, 50, "int"],
+    ["tabLimitPaise", "Member tab limit · ₹", 0, 1000000, "money"],
+    ["trialDiscountBps", "Trial discount · %", 0, 100, "percent"],
+    ["socialPricePaise", "Social guest price · ₹", 0, 10000, "money"],
+    ["deliveryFeePaise", "Delivery fee · ₹", 0, 10000, "money"],
+    ["tabDueDays", "Member tab due · days", 1, 90, "int"],
+    ["reminderHour", "Reminder hour · Asia/Kolkata (0–23)", 0, 23, "int"],
+    ["payrollTaxBps", "Payroll withholding · %", 0, 100, "percent"],
   ] as const;
+  const shown = (key: (typeof fields)[number][0], unit: string) =>
+    unit === "int" ? settings[key] : settings[key] / 100;
   return (
     <form
       className="surface space-y-7"
@@ -318,7 +322,8 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
         const input: Record<string, unknown> = {};
-        for (const [key] of fields) input[key] = Number(data.get(key));
+        for (const [key, , , , unit] of fields)
+          input[key] = unit === "int" ? Number(data.get(key)) : Math.round(Number(data.get(key)) * 100);
         for (const key of [
           "address",
           "contactEmail",
@@ -340,7 +345,7 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
         </p>
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
-        {fields.map(([key, label, min, max]) => (
+        {fields.map(([key, label, min, max, unit]) => (
           <div key={key}>
             <label htmlFor={`setting-${key}`}>{label}</label>
             <Input
@@ -350,9 +355,9 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
               type="number"
               min={min}
               max={max}
-              step={1}
+              step={unit === "int" ? 1 : "any"}
               required
-              defaultValue={settings[key]}
+              defaultValue={shown(key, unit)}
             />
           </div>
         ))}
@@ -462,14 +467,21 @@ function PlanFields({ plan }: { plan: MembershipPlan }) {
       return client.invalidateQueries();
     },
   });
-  const fields = [
-    ["pricePaise", "Monthly price · paise", 100, 100000000],
-    ["quarterDiscountBps", "3-month discount · basis points", 0, 10000],
-    ["annualDiscountBps", "Annual discount · basis points", 0, 10000],
-    ["courtDiscountBps", "Court discount · basis points", 0, 10000],
-    ["shopDiscountBps", "Shop discount · basis points", 0, 10000],
-    ["foodDiscountBps", "Clubhouse discount · basis points", 0, 10000],
-    ["freeSessionsWeek", "Free sessions per week", 0, 14],
+  // Owners think in rupees and percent; the API stores integer paise and basis points.
+  const [monthly, setMonthly] = useState(String(plan.pricePaise / 100));
+  const [quarter, setQuarter] = useState(String(plan.quarterDiscountBps / 100));
+  const [annual, setAnnual] = useState(String(plan.annualDiscountBps / 100));
+  const toPaise = (v: string) => Math.round(Number(v) * 100);
+  const toBps = (v: string) => Math.round(Number(v) * 100);
+  const preview = {
+    pricePaise: toPaise(monthly) || 0,
+    quarterDiscountBps: toBps(quarter) || 0,
+    annualDiscountBps: toBps(annual) || 0,
+  };
+  const percentFields = [
+    ["courtDiscountBps", "Court discount · %"],
+    ["shopDiscountBps", "Shop discount · %"],
+    ["foodDiscountBps", "Clubhouse discount · %"],
   ] as const;
   return (
     <form
@@ -480,35 +492,58 @@ function PlanFields({ plan }: { plan: MembershipPlan }) {
         const input: Record<string, unknown> = {
           id: plan.id,
           active: data.get("active") === "on",
+          pricePaise: toPaise(monthly),
+          quarterDiscountBps: toBps(quarter),
+          annualDiscountBps: toBps(annual),
+          freeSessionsWeek: Number(data.get("freeSessionsWeek")),
         };
-        for (const [key] of fields) input[key] = Number(data.get(key));
+        for (const [key] of percentFields) input[key] = toBps(String(data.get(key)));
         mutation.mutate(input);
       }}
     >
-      <div className="mb-6 flex justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-semibold">{plan.name}</h3>
         <span className="text-sm text-slate-500">
-          {money(mutation.data?.pricePaise ?? plan.pricePaise)} / month ·{" "}
+          Currently {money(mutation.data?.pricePaise ?? plan.pricePaise)} / month ·{" "}
           {plan.juniorOnly ? "Under 18" : "All players"}
         </span>
       </div>
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {fields.map(([key, label, min, max]) => (
+        <div>
+          <label htmlFor={`${plan.id}-monthly`}>Monthly price · ₹</label>
+          <Input id={`${plan.id}-monthly`} className="mt-2" type="number" min={1} max={1000000} step="any" required value={monthly} onChange={(e) => setMonthly(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor={`${plan.id}-quarter`}>3-month discount · %</label>
+          <Input id={`${plan.id}-quarter`} className="mt-2" type="number" min={0} max={100} step="any" required value={quarter} onChange={(e) => setQuarter(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor={`${plan.id}-annual`}>Annual discount · %</label>
+          <Input id={`${plan.id}-annual`} className="mt-2" type="number" min={0} max={100} step="any" required value={annual} onChange={(e) => setAnnual(e.target.value)} />
+        </div>
+        {percentFields.map(([key, label]) => (
           <div key={key}>
             <label htmlFor={`${plan.id}-${key}`}>{label}</label>
-            <Input
-              id={`${plan.id}-${key}`}
-              name={key}
-              className="mt-2"
-              type="number"
-              min={min}
-              max={max}
-              step={1}
-              required
-              defaultValue={plan[key]}
-            />
+            <Input id={`${plan.id}-${key}`} name={key} className="mt-2" type="number" min={0} max={100} step="any" required defaultValue={plan[key] / 100} />
           </div>
         ))}
+        <div>
+          <label htmlFor={`${plan.id}-free`}>Free sessions per week</label>
+          <Input id={`${plan.id}-free`} name="freeSessionsWeek" className="mt-2" type="number" min={0} max={14} step={1} required defaultValue={plan.freeSessionsWeek} />
+        </div>
+      </div>
+      <div className="mt-6 grid gap-3 rounded-lg bg-slate-50 p-4 text-sm sm:grid-cols-3" aria-live="polite">
+        <p className="sm:col-span-3 text-xs font-medium uppercase tracking-wider text-slate-500">What members will pay</p>
+        {TERM_MONTHS.map((m) => {
+          const price = termPrice(preview, m);
+          return (
+            <div key={m}>
+              <p className="text-slate-500">{TERM_LABELS[m]}</p>
+              <p className="text-lg font-semibold text-slate-900">{money(price.totalPaise)}</p>
+              <p className="text-xs text-slate-500">{price.discountPaise ? `${money(price.monthlyEquivalentPaise)} a month · saves ${money(price.discountPaise)}` : `${money(price.monthlyEquivalentPaise)} a month`}</p>
+            </div>
+          );
+        })}
       </div>
       <label className="mt-6 flex items-center gap-3">
         <input
@@ -519,9 +554,6 @@ function PlanFields({ plan }: { plan: MembershipPlan }) {
         />
         Available to purchase
       </label>
-      <p className="mt-4 text-xs text-slate-400">
-        100 basis points = 1%. Save 1500 for a 15% discount.
-      </p>
       {mutation.error && (
         <p className="field-error mt-4" role="alert">
           {mutation.error.message}
@@ -529,7 +561,7 @@ function PlanFields({ plan }: { plan: MembershipPlan }) {
       )}
       {mutation.isSuccess && (
         <p className="mt-4 text-sm text-emerald-700" role="status">
-          Plan saved. Historical purchases preserved.
+          Plan saved. New purchases use these prices; past purchases and receipts are unchanged.
         </p>
       )}
       <Button className="mt-5" disabled={mutation.isPending}>

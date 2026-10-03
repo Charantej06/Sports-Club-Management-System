@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { money } from "@/lib/utils";
 import { Button } from "./ui/button";
+import { promptText } from "./prompt-dialog";
 import {
   GatewayCheckout,
   GatewayHistory,
@@ -268,8 +269,12 @@ export function CheckoutHold({
                   "Processing…"
                 ) : totalPaise === 0 ? (
                   "Confirm Complimentary Session"
+                ) : area === "order" ? (
+                  "Pay and place order"
+                ) : area === "social" ? (
+                  "Confirm my place"
                 ) : (
-                  "Confirm Booking"
+                  "Confirm booking"
                 )}
               </Button>
             )}
@@ -361,10 +366,18 @@ export function History() {
     hold: Hold;
     eventId?: string;
   } | null>(null);
-  const cancel = (area: string, id: string, extra = {}) => {
-    const reason = window.prompt(
-      "Reason for cancellation (at least 5 characters)",
-    );
+  const cancel = async (area: string, id: string, extra = {}) => {
+    const reason =
+      area === "waiting"
+        ? "Left the waiting list"
+        : await promptText({
+            title: "Cancel this booking?",
+            description: "Please tell us why so we can offer the slot to someone else. Cancellation rules and refunds still apply.",
+            label: "Reason for cancelling",
+            placeholder: "e.g. Plans changed",
+            minLength: 5,
+            confirmLabel: "Cancel booking",
+          });
     if (reason)
       action.mutate({
         area,

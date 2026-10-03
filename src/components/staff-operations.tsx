@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useItemDraft } from "./safe-drafts";
+import { promptText } from "./prompt-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { api } from "@/lib/api-client";
@@ -81,8 +82,16 @@ function useWorkspace<T>(area: string, query = "") {
     refetchInterval: 5000,
   });
 }
-function reason() {
-  return window.prompt("Reason (at least 5 characters)") || undefined;
+async function reason(title = "Add a reason", confirmLabel = "Confirm") {
+  return (
+    (await promptText({
+      title,
+      label: "Reason",
+      placeholder: "A short explanation for the record",
+      minLength: 5,
+      confirmLabel,
+    })) || undefined
+  );
 }
 function Field({
   label,
@@ -476,8 +485,8 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
                       size="sm"
                       variant="outline"
                       disabled={action.isPending}
-                      onClick={() => {
-                        const r = reason();
+                      onClick={async () => {
+                        const r = await reason("Cancel this booking?", "Cancel booking");
                         if (r)
                           action.mutate({
                             area: "booking",
@@ -532,8 +541,8 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  const r = reason();
+                onClick={async () => {
+                  const r = await reason("Cancel this social event?", "Cancel event and credit participants");
                   if (r)
                     action.mutate({
                       area: "social",
@@ -713,8 +722,8 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => {
-                const r = reason();
+              onClick={async () => {
+                const r = await reason("Reopen this court?", "Reopen court");
                 if (r)
                   action.mutate({
                     area: "closure",
@@ -1171,9 +1180,9 @@ export function Inventory() {
                 <Button
                   size="sm"
                   disabled={action.isPending}
-                  onClick={() => {
+                  onClick={async () => {
                     const tracking = o.delivery
-                      ? window.prompt("Tracking / courier reference")
+                      ? await promptText({ title: "Dispatch this order", description: "The customer can see this reference on their order.", label: "Tracking / courier reference", placeholder: "e.g. Delhivery 1234567890", minLength: 3, confirmLabel: "Mark dispatched" })
                       : undefined;
                     if (o.delivery && !tracking) return;
                     action.mutate({
@@ -1207,8 +1216,8 @@ export function Inventory() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    const r = reason();
+                  onClick={async () => {
+                    const r = await reason("Cancel this order?", "Cancel order");
                     if (r)
                       action.mutate({
                         area: "order",
@@ -1580,8 +1589,8 @@ function BillControls({
                     size="sm"
                     variant="outline"
                     disabled={action.isPending || b.status !== "OPEN"}
-                    onClick={() => {
-                      const r = reason();
+                    onClick={async () => {
+                      const r = await reason("Remove this kitchen item?", "Remove item");
                       if (r)
                         action.mutate({
                           area: "bill",
@@ -1915,8 +1924,8 @@ export function Financial() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => {
-                      const r = reason();
+                    onClick={async () => {
+                      const r = await reason("Record this refund?", "Record refund");
                       if (r)
                         action.mutate({
                           area: "refund",

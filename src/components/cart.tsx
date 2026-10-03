@@ -1,14 +1,16 @@
 "use client";
 import Link from "next/link";
 import { useSyncExternalStore, useState } from "react";
-import { ShoppingCart } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { ShoppingCart, CheckCircle2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { publicData } from "@/modules/public/queries";
 import { money } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-import { CheckoutHold, Feedback, useAction } from "./operations-ui";
+import { CheckoutHold, ReceiptLink, useAction } from "./operations-ui";
+import { usePaymentModes } from "./gateway-checkout";
 const storage = "champions-cart-v2",
   empty = "[]";
 function subscribe(listener: () => void) {
@@ -61,10 +63,45 @@ export function Cart() {
       invoiceId: string;
     } | null>(null);
   const action = useAction();
+  const router = useRouter();
+  const client = useQueryClient();
+  const modes = usePaymentModes();
+  const [placed, setPlaced] = useState<{ totalPaise: number; invoiceId?: string; simulated: boolean } | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [working, setWorking] = useState(false);
   const query = useQuery({
     queryKey: ["catalogue"],
     queryFn: () => api<Awaited<ReturnType<typeof publicData>>>("/api/public"),
   });
+  const subtotal = items.reduce((sum, i) => {
+    const v = query.data?.products.flatMap((p) => p.variants).find((x) => x.id === i.variantId);
+    return sum + (v ? v.pricePaise * i.quantity : 0);
+  }, 0);
+  const clearCart = () => {
+    localStorage.removeItem(storage);
+    window.dispatchEvent(new Event("club-cart"));
+  };
+  /** Local/complimentary orders complete in one step; online payment opens straight from the held order. */
+  async function placeOrder(held: NonNullable<typeof hold>) {
+    if (modes.data?.gateway && held.totalPaise > 0) return setHold(held);
+    const patch = (input: Record<string, unknown>) =>
+      api(`/api/operations/order/${held.id}`, {
+        method: "PATCH",
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify(input),
+      });
+    try {
+      if (!modes.data?.local && held.totalPaise > 0) throw new Error("Online payments are not configured. Please contact the club to order.");
+      await patch({ action: "confirm", method: "LOCAL" });
+      clearCart();
+      setPlaced({ totalPaise: held.totalPaise, invoiceId: held.invoiceId, simulated: !!modes.data?.local && held.totalPaise > 0 });
+      router.refresh();
+      await client.invalidateQueries();
+    } catch (error) {
+      await patch({ action: "cancel", reason: "Checkout could not be completed" }).catch(() => undefined);
+      throw error;
+    }
+  }
   const change = (id: string, n: number) => {
     localStorage.setItem(
       storage,
@@ -93,13 +130,34 @@ export function Cart() {
           }}
         />
       )}
-      <Feedback action={action} />
+      {(checkoutError || action.error) && (
+        <p className="field-error my-3" role="alert">
+          {checkoutError || action.error?.message}
+        </p>
+      )}
+      {placed && (
+        <div role="status" className="mt-8 flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-6">
+          <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-400" size={26} aria-hidden="true" />
+          <div className="space-y-2">
+            <h2 className="text-xl font-medium">Order placed.</h2>
+            <p className="text-sm text-neutral-300">
+              {money(placed.totalPaise)} · collect it at the club desk. {placed.simulated && "Local test mode: no money was collected."}
+            </p>
+            <ReceiptLink id={placed.invoiceId} />
+            <div className="pt-2">
+              <Button asChild size="sm" variant="outline">
+                <Link href="/shop">Keep shopping</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {query.error && (
         <p role="alert" className="field-error">
           {query.error.message}
         </p>
       )}
-      {!items.length && (
+      {!items.length && !placed && (
         <p className="soft-text mt-8">
           Your cart is empty. Find your next favourite piece of kit in the shop.
         </p>
@@ -109,6 +167,9 @@ export function Cart() {
         onSubmit={(e) => {
           e.preventDefault();
           const f = new FormData(e.currentTarget);
+          setCheckoutError(null);
+          setPlaced(null);
+          setWorking(true);
           action.mutate(
             {
               area: "order",
@@ -129,7 +190,10 @@ export function Cart() {
             },
             {
               onSuccess: (d) =>
-                setHold(d as unknown as NonNullable<typeof hold>),
+                placeOrder(d as unknown as NonNullable<typeof hold>)
+                  .catch((error: Error) => setCheckoutError(error.message))
+                  .finally(() => setWorking(false)),
+              onError: () => setWorking(false),
             },
           );
         }}
@@ -208,9 +272,15 @@ export function Cart() {
                 ))}
               </div>
             )}
-            <Button disabled={action.isPending || !!hold}>
-              {action.isPending ? "Reserving stock…" : "Review checkout"}
-            </Button>
+            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-5">
+              <div>
+                <p className="text-xs text-neutral-500">Subtotal before member discounts</p>
+                <p className="text-2xl font-medium">{money(subtotal)}</p>
+              </div>
+              <Button size="lg" disabled={working || action.isPending || modes.isPending || !!hold}>
+                {working || action.isPending ? "Placing your order…" : modes.data?.gateway ? "Continue to payment" : "Place order"}
+              </Button>
+            </div>
             <p className="text-xs text-neutral-500">
               Your cart is a local draft. Checkout requires a live connection.
               Delivery fees appear in the invoice.
