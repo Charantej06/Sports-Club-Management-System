@@ -21,6 +21,9 @@ Protected routes authenticate the cookie with Better Auth and read current roles
 | GET /api/staff/settings | Full editable business settings | Owner |
 | PATCH /api/staff/settings | Full operating-policy/contact fields; timezone fixed to Asia/Kolkata | Owner |
 | PATCH /api/staff/plans | `{id,pricePaise (monthly rate),quarterDiscountBps,annualDiscountBps,courtDiscountBps,shopDiscountBps,foodDiscountBps,freeSessionsWeek,active}` | Owner |
+| POST /api/operations/member | `{name,email,phone?,dateOfBirth?}` front-desk registration; creates the account, Champions ID and an invitation email, or returns the existing member for a known email (`created:false`) | Owner/reception |
+| GET /api/staff/member?id=... | A member's history: plan and days left, visits, bookings, memberships, orders, bills, total paid and unpaid balance | Owner/reception |
+| GET /staff/summary?preset=month\|week\|today or ?from=&to= | Printable business summary page (money in/out, departments, bar vs kitchen, what the club owes, courts) | Owner |
 | GET /api/staff/facilities | Every sport and court (including maintenance/retired) with upcoming booking counts | Owner/reception |
 | POST /api/staff/facilities | `{action:"createSport",name,description,image}`; `{action:"updateSport",id,name?,description?,image?,status?,statusNote?}`; `{action:"createCourt",sportId,name?,hourlyPaise,indoor}`; `{action:"updateCourt",id,name?,hourlyPaise?,indoor?,status?,statusNote?}`. `status` is `ACTIVE`, `MAINTENANCE` (note required, shown to players) or `INACTIVE` (retired, hidden). `image` must be a local `/images/…` asset. Facilities are never deleted; changes are audited. Existing bookings are not cancelled automatically | Owner |
 | GET /api/staff/mail | Email mode, masked SMTP settings, missing variables, warnings and delivery queue counts; never the password | Owner |
@@ -55,11 +58,11 @@ Every operation mutation requires the session cookie, permitted `Origin` and UUI
 | GET /api/operations/kitchen | Open preparation tickets and amendments | Owner/kitchen/cashier |
 | GET /api/operations/billing | Latest 150 permitted invoices, allocations, credits and refunds | Owner/reception/cashier, department scoped |
 | GET /api/operations/booking/:id, order/:id, bill/:id | Scoped persisted record | Own customer or permitted staff |
-| POST /api/operations/booking | `{courtId,day,hour,trial?}` creates priced temporary hold/invoice; staff may add `userId` or `guestName,guestEmail?` | Member/owner/reception |
+| POST /api/operations/booking | `{courtId,day,hour,minute?:0|30,trial?}` creates priced temporary hold/invoice; a new session may start every `slotMinutes` (30 by default, owner-editable to 60), lasts one hour and must end by closing time (422 `SLOT_START` / `OPENING_HOURS`); 409 `SLOT_TAKEN` when it overlaps another booking; staff may add `userId` or `guestName,guestEmail?` | Member/owner/reception |
 | PATCH /api/operations/booking/:id | `{action:"confirm"|"cancel"|"checkin",method?,reason?,override?}` | Own customer; owner/reception for check-in/override |
 | POST /api/operations/social-create | `{courtId,day,hour,title,capacity}` creates Friday event and one court reservation | Owner/reception |
 | PATCH /api/operations/social/:eventId | `{action:"join"}`; `{action:"confirm"|"cancel"|"checkin",participantId?,method?,reason?,override?}`; `{action:"cancelEvent",reason}` | Own participant inferred; owner/reception can select participantId |
-| POST /api/operations/waiting | `{courtId,day,hour,eventId?}`; one entry per own court/start | Session |
+| POST /api/operations/waiting | `{courtId,day,hour,minute?:0|30,eventId?}`; one entry per own court/start | Session |
 | PATCH /api/operations/waiting/:id | `{action:"cancel"}`; offered holds are released via booking/participant cancellation | Own customer |
 | POST /api/operations/closure | `{courtId,startsAt,endsAt,reason}` | Owner/reception |
 | PATCH /api/operations/closure/:id | `{reason}` reopens closure | Owner/reception |

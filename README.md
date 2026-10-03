@@ -22,11 +22,14 @@ Open **http://localhost:3000**. **Quickest way:** `npm run dev:all` starts the a
 
 `setup:env` preserves existing configuration and generates a random Better Auth secret for a new `.env`. Use `.env.example` as the complete configuration reference. Seeding preserves existing rows, prices, stock, roles and memberships. It creates demo users with known credentials; use this seed only in a local demo database.
 
+See **[docs/FEATURES.md](docs/FEATURES.md)** for how every scene in the brief is implemented and where the code lives.
+
 ## Latest changes: easier booking, flexible memberships, managed courts, email setup
 - **One-tap booking.** Choosing a free hour on the booking page goes straight to checkout: no review-and-confirm step. Local/complimentary bookings finish immediately with a confirmation card; with Razorpay enabled the payment opens at once. The server still holds the slot first, so two players can never take the same hour, and a failed checkout releases its hold.
 - **Membership terms.** Plans store a monthly rate. Members pick **1 month, 3 months or Annual** at checkout; the 3-month and annual discounts (default 5% and 15%, editable per plan under *Membership plans*) are applied by the server. Terms use calendar months and renewals chain without overlap. Existing prices were converted to a monthly rate by migration `202610040001`.
 - **Courts and sports are data, not code.** Owners open *Courts & sports* to add a sport or court, change hourly rates, and mark a court or a whole sport as **under maintenance** (customers see the note and cannot book) or retire it. The booking page, landing page, availability and enquiry form follow automatically. Existing bookings are not cancelled for you; the screen shows how many are affected so reception can move them.
 - **Email.** Follow [docs/SMTP.md](docs/SMTP.md). Check the setup with `npm run mail:verify -- you@example.com` or the owner's *Reminders & email* tab.
+- **Half-hour slots and the front desk.** A new one-hour slot opens every 30 minutes (owner can switch to hourly). Reception can register a walk-in member, see a member's full history, and check what is free from one panel. The owner gets a bar-versus-kitchen split, a "what the club owes" view and a printable summary.
 - **Staff workspaces.** Grouped, icon-labelled navigation that remembers the open tab (`/staff#facilities`), clearer overview cards, consistent form and table styling, and a scrolling tab strip on phones.
 
 ## Docker alternative
