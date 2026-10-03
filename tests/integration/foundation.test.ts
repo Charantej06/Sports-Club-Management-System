@@ -54,7 +54,7 @@ after(async () => {
     await tx.reservation.deleteMany({ where: { userId: { in: all } } });
     await tx.auditLog.deleteMany({ where: { actorId: { in: all } } });
     await tx.user.deleteMany({ where: { id: { in: all } } });
-    const mails = await tx.mailMessage.findMany({ where: { OR: [{ to: { in: signupEmails } }, { subject: { startsWith: prefix } }] }, select: { jobId: true } });
+    const mails = await tx.mailMessage.findMany({ where: { OR: [{ to: { in: [...signupEmails, ...ids.map(id => `${id}@example.test`)] } }, { subject: { startsWith: prefix } }] }, select: { jobId: true } });
     await tx.mailMessage.deleteMany({ where: { jobId: { in: mails.map(m => m.jobId) } } });
     await tx.job.deleteMany({ where: { id: { in: mails.map(m => m.jobId) } } });
   });

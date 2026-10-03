@@ -8,7 +8,7 @@ Protected routes authenticate the cookie with Better Auth and read current roles
 |---|---|---|
 | GET /api/health | DB readiness `{status:"ok"}`; 503 if unavailable | Public |
 | GET /api/public | Stored sports/courts, plans, active catalogue/variants, menu and limited contact/hour settings | Public |
-| GET /api/public/availability?sport=tennis&date=2026-10-03 | Court names, guest prices and hourly availability booleans; no reservation/user details | Public |
+| GET /api/public/availability?sport=tennis&date=2026-10-03 | Court names, guest prices and hourly available/elapsed booleans plus closure reason; no reservation/user details | Public |
 | POST /api/enquiries | `{name,email,sport,message,website:""}`; 201 `{id}`; rate-limited to 3/email/hour | Public, same origin |
 | GET /api/me | Own safe profile, membership snapshots, invoices/payment allocations/credits, bookings and orders | Session |
 | PATCH /api/me | `{name,phone,dateOfBirth}`; birthday `YYYY-MM-DD` or empty; 200 `{updated:true}` | Own account |
@@ -76,3 +76,46 @@ Payment methods are `LOCAL`, `CASH`, `CARD`, `UPI`; manual methods require autho
 Settings add `trialDiscountBps`, `socialPricePaise`, `deliveryFeePaise`, `tabDueDays` to the existing operating policies. Responses deliberately separate preparation, payment, fulfillment and refund states. Receipt pages `/account/receipts/:invoiceId` allow the owning customer and staff authorized for that department; invoice APIs remain customer-owned.
 
 Durable worker kinds: `SEND_MAIL`, `EXPIRE_BOOKING`, `EXPIRE_SOCIAL`, `EXPIRE_SHOP`, `OFFER_WAITLIST`, `LEAD_FOLLOWUP`. Expiry/refund/stock release is repeat-safe; obsolete social invoice/follow-up jobs are suppressed. Waiting offers retry contested member locks while retaining FIFO order. Claims use SKIP LOCKED with stale-lease recovery and retry backoff.
+
+## Stage three administration and reporting
+
+All mutations below validate strict bodies, require a session, permitted Origin and UUID Idempotency-Key, and record sensitive actions without secrets. Paise fields are bounded integer values. Unknown actions/fields are rejected.
+
+| Route | Contract | Access |
+|---|---|---|
+| GET /api/staff/reports | `preset=today|week|month` or `from=YYYY-MM-DD&to=YYYY-MM-DD`, inclusive club dates, at most 366 days. Returns totals plus every supporting ledger record. `format=csv` downloads records. `area=operations` returns utilization and current alerts. | Owner |
+| GET /api/staff/home | Role-filtered live action counts/navigation targets | Staff |
+| GET /api/staff/admin?area=hr | Employee/current salary, shifts, leave decisions and finalized payslips; own employee only unless owner | Staff |
+| GET /api/staff/admin?area=cash | Shift totals, receipts/refunds/payouts and expected cash; owner additionally sees unassigned cash | Owner/reception/cashier |
+| GET /api/staff/admin?area=quotes | Persisted business quotes with invoice links | Owner |
+| GET /api/staff/admin?area=mail | Delivery mode/configuration, message status and related attempts/run time/safe failure text; no authentication-link bodies | Owner |
+| GET /api/staff/admin?area=gateway | Gateway attempts, capture references and review states | Owner |
+| GET /api/staff/admin?area=audit | `q` matches action/actor/entity, optional `cursor`; owner pages all history; other staff get their latest 50 own records | Staff |
+| GET /api/staff/payroll-export | Finalized payslip rows and period/configuration withholding summaries; CSV formula protection | Owner |
+| GET /staff/payslips/:id | Printable immutable pay/tax snapshot | Owner or owning employee |
+| GET /staff/quotes/:id | Printable quote snapshot | Owner |
+
+`POST /api/staff/admin` uses an action discriminator:
+
+- `employee`: `{email,title,salaryPaise,active}` for an existing staff account; owner only. Upsert preserves finalized payroll history.
+- `shift`: `{employeeId,startsAt,endsAt}` UTC ISO instants, positive interval at most 24 hours. `shiftCancel`: `{id,reason}`. Owner only; overlap/approved-leave conflicts fail.
+- `leave`: `{employeeId,startsAt,endsAt,reason}`, at most 90 days; owner or own employee. `leaveDecision`: `{id,status:"APPROVED"|"REJECTED",reason}` owner only; only pending requests, no scheduled-shift or approved-leave overlap.
+- `payslip`: `{employeeId,period:"YYYY-MM",adjustmentPaise,reason}` owner only. Finalizes one snapshot per employee/period using the current configured base/withholding. Finalized rows cannot be updated.
+- `cashOpen`: `{openingPaise}`; one open shift per actor. `cashPayout`: `{id,amountPaise,reason}`. `cashClose`: `{id,countedPaise,reason}`; discrepancies require a reason. Staff reconcile own shifts, owner may reconcile any. Closed shifts cannot change. Cash settlements/refund confirmations attach to the actor's open shift under the same lock.
+- `quote`: `{customerName,customerEmail,department,validUntil,lines:[{description,quantity,unitPaise}]}` owner only. `quoteInvoice`: `{id}` creates one unpaid immutable business invoice. This does not activate a membership or reserve court/retail resources. Normal department operations remain responsible for fulfillment.
+- `retryMail`: `{id}` owner only; retries a failed delivery and resets attempts. Suppressed/delivered messages cannot be retried.
+- `gatewayRepayment`: `{id,refundId,reason}` owner only; verifies a processed full provider refund for a NEEDS_REVIEW unallocated capture before recording one repayment. This is verification, not initiation of another money transfer.
+
+Settings additionally accept `reminderHour` (0–23, club timezone), `payrollTaxBps` (0–10000) and `payrollTaxLabel`. Reminder offset changes take effect in the worker's next synchronization (within one minute). New durable kinds are `MEMBERSHIP_REMINDER` and `GATEWAY_CAPTURE`.
+
+Financial sales use invoice issue dates; collections use payment receive dates; credits use credit issue dates; recorded refunds use actual recording dates (legacy records fall back to creation date). Pending refunds are separate. Outstanding includes all invoices issued through the end date, less allocations/credits through that date. Department collections use allocations; unallocated provider captures appear explicitly in the global collection figure and gateway review. Core invoices/benefit snapshots are immutable.
+
+## Optional verified payment provider
+
+`GET /api/payments` exposes only enabled modes. `GET /api/payments?history=true` returns the signed-in account's intent status/amount; `?id=UUID` reads one owned intent. No other customer's intent can be read.
+
+`POST /api/payments` creates a server-priced provider order with an idempotency key. Body is `{kind:"membership",input:<reviewed membership payload>}` or `{kind:"booking"|"order"|"social"|"invoice",targetId}`. Social targetId is the owned participant ID; invoice settlement supports eligible owned clubhouse/business charges. Membership eligibility and owned/live holds are checked before order creation and again before confirmation.
+
+`PATCH /api/payments` accepts `{id,paymentId,signature}`. The server uses its stored order ID for callback HMAC, persists a capture job, fetches the provider payment and checks captured status, amount, currency and order before shared checkout. `/api/payments/webhook` verifies HMAC over the raw body with the separate webhook secret and durably deduplicates `payment.captured` events. No public operation can assert GATEWAY_VERIFIED: `GATEWAY` allocations require internal server capture context. LOCAL/CASH/CARD/UPI semantics remain unchanged.
+
+Intent states: PENDING is not a club confirmation; COMPLETE has a shared charge/allocation; NEEDS_REVIEW is captured money with a changed/expired checkout and visible unallocated collection; REPAID has provider-verified full repayment. Provider settings/keys are documented in README. Mock integration tests do not prove actual sandbox/live acceptance.
