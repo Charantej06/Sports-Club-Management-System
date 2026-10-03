@@ -24,6 +24,15 @@ import { api } from "@/lib/api-client";
 import { money, date } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import {
+  OwnerReports,
+  CashWorkspace,
+  PeopleWorkspace,
+  BusinessDocuments,
+  DeliveryWorkspace,
+  AuditWorkspace,
+} from "./owner-workspaces";
+import { DraftScope } from "./safe-drafts";
 type LeadView = {
   id: string;
   name: string;
@@ -35,13 +44,12 @@ type LeadView = {
 export function StaffDesk({
   name,
   role,
-  leads,
-  notifications,
-  activeMembers,
+  userId,
   plans,
 }: {
   name: string;
   role: string;
+  userId: string;
   leads: LeadView[];
   notifications: number;
   activeMembers: number;
@@ -51,6 +59,26 @@ export function StaffDesk({
   const owner = role === "OWNER";
   const lookupAllowed = ["OWNER", "RECEPTION", "CASHIER"].includes(role);
   const tabs = [
+    ...(owner
+      ? [
+          { id: "reports", name: "Owner reports", icon: ClipboardList },
+          { id: "documents", name: "Business documents", icon: ClipboardList },
+          { id: "delivery", name: "Reminders & delivery", icon: Mail },
+        ]
+      : []),
+    {
+      id: "audit",
+      name: owner ? "Audit history" : "My audit history",
+      icon: ClipboardList,
+    },
+    ...(lookupAllowed
+      ? [{ id: "cash", name: "Cash reconciliation", icon: ClipboardList }]
+      : []),
+    {
+      id: "people",
+      name: owner ? "People & payroll" : "My employment",
+      icon: Users,
+    },
     ...(["OWNER", "RECEPTION"].includes(role)
       ? [
           { id: "reception", name: "Reception calendar", icon: ClipboardList },
@@ -83,91 +111,126 @@ export function StaffDesk({
       : []),
   ];
   return (
-    <div className="staff-theme min-h-[80vh]">
-      <div className="site-width py-10">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
-              Champions operations
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-              Hello, {name.split(" ")[0]}.
-            </h1>
+    <DraftScope userId={userId}>
+      <div className="staff-theme min-h-[80vh]">
+        <div className="site-width py-10">
+          <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
+                Champions operations
+              </p>
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+                Hello, {name.split(" ")[0]}.
+              </h1>
+            </div>
+            <span className="rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-xs text-orange-800">
+              {role === "CASHIER"
+                ? "Waiter / Cashier"
+                : role[0] + role.slice(1).toLowerCase()}{" "}
+              workspace
+            </span>
           </div>
-          <span className="rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-xs text-orange-800">
-            {role === "CASHIER"
-              ? "Waiter / Cashier"
-              : role[0] + role.slice(1).toLowerCase()}{" "}
-            workspace
-          </span>
-        </div>
-        <div className="grid gap-7 lg:grid-cols-[220px_1fr]">
-          <nav
-            className="flex flex-wrap content-start gap-2 lg:flex-col"
-            aria-label="Staff navigation"
-          >
-            {tabs.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setTab(item.id)}
-                aria-current={tab === item.id ? "page" : undefined}
-                className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left text-sm ${tab === item.id ? "bg-[#26303d] text-white" : "text-slate-600 hover:bg-white"}`}
-              >
-                <item.icon size={17} />
-                {item.name}
-              </button>
-            ))}
-          </nav>
-          <div className="min-w-0">
-            {tab === "today" && (
-              <>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <Metric label="Active memberships" value={activeMembers} />
-                  <Metric label="Enquiries at page load" value={leads.length} />
-                  <Metric
-                    label="Notifications at page load"
-                    value={notifications}
-                  />
-                </div>
-                <div className="surface mt-6">
-                  <h2 className="text-lg font-semibold">
-                    Your operational workspace
-                  </h2>
-                  <p className="mt-3 text-sm text-slate-500">
-                    Use the live workspaces to manage arrivals, enquiries,
-                    collections, tables and preparation. Records refresh every
-                    five seconds.
-                  </p>
-                </div>
-                {role === "KITCHEN" ? (
-                  <Kitchen />
-                ) : role === "CASHIER" ? (
-                  <POS />
-                ) : (
-                  <CRM />
-                )}
-              </>
-            )}
-            {tab === "reception" && <Reception plans={plans} />}{" "}
-            {tab === "crm" && <CRM />} {tab === "inventory" && <Inventory />}{" "}
-            {tab === "pos" && <POS />} {tab === "kitchen" && <Kitchen />}{" "}
-            {tab === "billing" && <Financial />}
-            {tab === "lookup" && <LookupForm />}
-            {tab === "settings" && <SettingsForm />}
-            {tab === "plans" && <PlansEditor plans={plans} />}{" "}
-            {tab === "users" && <StaffAccess />}
-            {tab === "inbox" && <LocalInbox />}
+          <div className="grid gap-7 lg:grid-cols-[220px_1fr]">
+            <nav
+              className="flex content-start gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible"
+              aria-label="Staff navigation"
+            >
+              {tabs.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setTab(item.id)}
+                  aria-current={tab === item.id ? "page" : undefined}
+                  className={`flex shrink-0 items-center gap-3 whitespace-nowrap rounded-lg px-4 py-3 text-left text-sm lg:whitespace-normal ${tab === item.id ? "bg-[#26303d] text-white" : "text-slate-600 hover:bg-white"}`}
+                >
+                  <item.icon size={17} />
+                  {item.name}
+                </button>
+              ))}
+            </nav>
+            <div className="min-w-0">
+              {tab === "today" && (
+                <>
+                  <OperationalHome role={role} onNavigate={setTab} />
+                  <div className="surface mt-6">
+                    <h2 className="text-lg font-semibold">
+                      Your operational workspace
+                    </h2>
+                    <p className="mt-3 text-sm text-slate-500">
+                      Use the live workspaces to manage arrivals, enquiries,
+                      collections, tables and preparation. Records refresh every
+                      five seconds.
+                    </p>
+                  </div>
+                  {owner ? (
+                    <OwnerReports />
+                  ) : role === "KITCHEN" ? (
+                    <Kitchen />
+                  ) : role === "CASHIER" ? (
+                    <POS />
+                  ) : (
+                    <Reception plans={plans} />
+                  )}
+                </>
+              )}
+              {tab === "reception" && <Reception plans={plans} />}{" "}
+              {tab === "crm" && <CRM />} {tab === "inventory" && <Inventory />}{" "}
+              {tab === "pos" && <POS />} {tab === "kitchen" && <Kitchen />}{" "}
+              {tab === "billing" && <Financial />}
+              {tab === "lookup" && <LookupForm />}
+              {tab === "settings" && <SettingsForm />}
+              {tab === "plans" && <PlansEditor plans={plans} />}{" "}
+              {tab === "users" && <StaffAccess />}
+              {tab === "inbox" && <LocalInbox />}
+              {tab === "reports" && <OwnerReports />}
+              {tab === "cash" && <CashWorkspace />}
+              {tab === "people" && <PeopleWorkspace owner={owner} />}
+              {tab === "documents" && <BusinessDocuments />}
+              {tab === "delivery" && <DeliveryWorkspace />}
+              {tab === "audit" && <AuditWorkspace />}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </DraftScope>
   );
 }
-function Metric({ label, value }: { label: string; value: number }) {
+function OperationalHome({
+  role,
+  onNavigate,
+}: {
+  role: string;
+  onNavigate: (tab: string) => void;
+}) {
+  const query = useQuery({
+    queryKey: ["staff-home", role],
+    queryFn: () =>
+      api<{ label: string; count: number; tab: string }[]>("/api/staff/home"),
+    refetchInterval: 5000,
+  });
   return (
-    <div className="surface">
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className="mt-4 text-3xl font-semibold">{value}</p>
+    <div className="mb-5">
+      <h2 className="mb-4 text-lg font-semibold">Today's actions</h2>
+      {query.isPending && <p role="status">Loading actions…</p>}
+      {query.error && (
+        <p role="alert" className="field-error">
+          {query.error.message}
+        </p>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {query.data?.map((c) => (
+          <button
+            key={c.label}
+            onClick={() => onNavigate(c.tab)}
+            className="surface text-left hover:border-orange-300"
+          >
+            <span className="block text-xs text-slate-600">{c.label}</span>
+            <strong className="mt-3 block text-2xl">{c.count}</strong>
+            <span className="mt-3 block text-xs text-orange-800">
+              Open workspace →
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -190,15 +253,18 @@ function SettingsForm() {
   return <SettingsFields settings={query.data} />;
 }
 function SettingsFields({ settings }: { settings: ClubSettings }) {
-  const router=useRouter();
-  const client=useQueryClient();
+  const router = useRouter();
+  const client = useQueryClient();
   const mutation = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
       api("/api/staff/settings", {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
-    onSuccess:()=>{router.refresh();return client.invalidateQueries();},
+    onSuccess: () => {
+      router.refresh();
+      return client.invalidateQueries();
+    },
   });
   const fields = [
     ["openHour", "Opening hour (0–22)", 0, 22],
@@ -214,6 +280,8 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
     ["socialPricePaise", "Social guest price · paise", 0, 1000000],
     ["deliveryFeePaise", "Delivery fee · paise", 0, 1000000],
     ["tabDueDays", "Member tab due · days", 1, 90],
+    ["reminderHour", "Reminder hour · Asia/Kolkata (0–23)", 0, 23],
+    ["payrollTaxBps", "Payroll withholding · basis points", 0, 10000],
   ] as const;
   return (
     <form
@@ -223,7 +291,12 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
         const data = new FormData(event.currentTarget);
         const input: Record<string, unknown> = {};
         for (const [key] of fields) input[key] = Number(data.get(key));
-        for (const key of ["address", "contactEmail", "contactPhone"])
+        for (const key of [
+          "address",
+          "contactEmail",
+          "contactPhone",
+          "payrollTaxLabel",
+        ])
           input[key] = String(data.get(key));
         input.reminderDays = String(data.get("reminderDays"))
           .split(",")
@@ -234,8 +307,8 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
       <div>
         <h2 className="text-xl font-semibold">Business settings</h2>
         <p className="mt-3 text-sm text-slate-500">
-          Club timezone: Asia/Kolkata. Future operational modules read these
-          saved policies.
+          Club timezone: Asia/Kolkata. Operational modules read these saved
+          policies.
         </p>
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
@@ -255,6 +328,17 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
             />
           </div>
         ))}
+        <div>
+          <label htmlFor="tax-label">Payroll withholding label</label>
+          <Input
+            id="tax-label"
+            name="payrollTaxLabel"
+            required
+            minLength={2}
+            maxLength={100}
+            defaultValue={settings.payrollTaxLabel}
+          />
+        </div>
         <div>
           <label htmlFor="reminders">Reminder days before expiry</label>
           <Input
@@ -335,15 +419,18 @@ function PlansEditor({ plans }: { plans: MembershipPlan[] }) {
   );
 }
 function PlanFields({ plan }: { plan: MembershipPlan }) {
-  const router=useRouter();
-  const client=useQueryClient();
+  const router = useRouter();
+  const client = useQueryClient();
   const mutation = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
       api<MembershipPlan>("/api/staff/plans", {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
-    onSuccess:()=>{router.refresh();return client.invalidateQueries();},
+    onSuccess: () => {
+      router.refresh();
+      return client.invalidateQueries();
+    },
   });
   const fields = [
     ["pricePaise", "Price · paise", 100, 100000000],
@@ -513,8 +600,8 @@ function LocalInbox() {
         <div>
           <h2 className="text-xl font-semibold">Local test inbox</h2>
           <p className="mt-3 text-sm text-slate-500">
-            Verification and password-reset emails stay on this machine in local
-            mode.
+            Verification, reset and membership reminder emails stay on this
+            machine in local mode.
           </p>
         </div>
         <Button
@@ -549,7 +636,9 @@ function LocalInbox() {
             <h3 className="text-sm font-semibold">{message.subject}</h3>
             <p className="mt-2 text-xs text-slate-400">
               To {message.to} · {date(message.createdAt)} ·{" "}
-              {message.status.toLowerCase()}
+              {message.status === "DELIVERED"
+                ? "delivered to local inbox"
+                : message.status.toLowerCase()}
             </p>
             <p className="mt-4 whitespace-pre-wrap break-all text-xs leading-relaxed text-slate-500">
               {message.body.split(/(https?:\/\/\S+)/).map((part, i) =>

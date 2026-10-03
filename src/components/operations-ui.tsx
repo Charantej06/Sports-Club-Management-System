@@ -6,6 +6,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { money } from "@/lib/utils";
 import { Button } from "./ui/button";
+import {
+  GatewayCheckout,
+  GatewayHistory,
+  usePaymentModes,
+} from "./gateway-checkout";
 export type Json<T> = T extends Date
   ? string
   : T extends (infer U)[]
@@ -15,7 +20,7 @@ export type Json<T> = T extends Date
       : T;
 export function useAction() {
   const client = useQueryClient();
-  const router=useRouter();
+  const router = useRouter();
   const [retry, setRetry] = useState<{
     fingerprint: string;
     key: string;
@@ -45,7 +50,10 @@ export function useAction() {
       setRetry(null);
       return result;
     },
-    onSuccess: () => {router.refresh();return client.invalidateQueries();},
+    onSuccess: () => {
+      router.refresh();
+      return client.invalidateQueries();
+    },
   });
 }
 export function Feedback({ action }: { action: ReturnType<typeof useAction> }) {
@@ -121,6 +129,7 @@ export function CheckoutHold({
   onDone: () => void;
 }) {
   const action = useAction();
+  const modes = usePaymentModes();
   const input = (kind: string) => ({
     action: kind,
     method: "LOCAL",
@@ -153,27 +162,53 @@ export function CheckoutHold({
       <p className="text-xs">
         Held until{" "}
         {hold.holdUntil
-          ? new Date(hold.holdUntil).toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata"})
+          ? new Date(hold.holdUntil).toLocaleTimeString("en-IN", {
+              timeZone: "Asia/Kolkata",
+            })
           : "checkout expires"}
         . Confirm before expiry.
       </p>
       <p className="text-xs">
-        Local test payment: no money is collected. Confirmed prices are saved
-        with your invoice.
+        {modes.data?.local
+          ? "Local test payment: no money is collected."
+          : modes.data?.gateway
+            ? "Payment is verified with Razorpay before confirmation."
+            : "Online payments are not configured. Contact reception."}{" "}
+        Confirmed prices are saved with your invoice.
       </p>
       <ReceiptLink id={hold.invoiceId} />
       <div className="flex flex-wrap gap-3">
-        <Button
-          disabled={action.isPending}
-          onClick={() =>
-            action.mutate(
-              { area, id: eventId || hold.id, input: input("confirm") },
-              { onSuccess: onDone },
-            )
-          }
-        >
-          {action.isPending ? "Processing…" : "Confirm · local test"}
-        </Button>
+        {modes.data?.gateway &&
+        (hold.totalPaise ?? hold.pricePaise ?? 0) > 0 ? (
+          <GatewayCheckout
+            input={{
+              kind: area === "order" ? "order" : area,
+              targetId: hold.id,
+            }}
+            onDone={onDone}
+          />
+        ) : (
+          <Button
+            disabled={
+              action.isPending ||
+              modes.isPending ||
+              (!modes.data?.local &&
+                (hold.totalPaise ?? hold.pricePaise ?? 0) > 0)
+            }
+            onClick={() =>
+              action.mutate(
+                { area, id: eventId || hold.id, input: input("confirm") },
+                { onSuccess: onDone },
+              )
+            }
+          >
+            {action.isPending
+              ? "Processing…"
+              : (hold.totalPaise ?? hold.pricePaise ?? 0) === 0
+                ? "Confirm complimentary session"
+                : "Confirm · local test"}
+          </Button>
+        )}
         <Button
           variant="outline"
           disabled={action.isPending}
@@ -286,6 +321,7 @@ export function History() {
   const d = query.data!;
   return (
     <div className="mt-8 space-y-7">
+      <GatewayHistory />
       {hold && <CheckoutHold {...hold} onDone={() => setHold(null)} />}
       <Feedback action={action} />
       <section className="rounded border border-current/15 p-6">
@@ -308,8 +344,11 @@ export function History() {
             className="mt-5 space-y-3 border-t border-current/10 pt-4"
           >
             <p>
-              {b.court.name} · {new Date(b.startsAt).toLocaleString("en-IN",{timeZone:"Asia/Kolkata"})} ·{" "}
-              {b.status}
+              {b.court.name} ·{" "}
+              {new Date(b.startsAt).toLocaleString("en-IN", {
+                timeZone: "Asia/Kolkata",
+              })}{" "}
+              · {b.status}
               {b.checkedInAt ? " · Checked in" : ""}
             </p>
             <p className="text-sm">{money(b.pricePaise || 0)}</p>
@@ -343,8 +382,10 @@ export function History() {
           >
             <p>
               {p.event.title} ·{" "}
-              {new Date(p.event.reservation.startsAt).toLocaleString("en-IN",{timeZone:"Asia/Kolkata"})} ·{" "}
-              {p.status}
+              {new Date(p.event.reservation.startsAt).toLocaleString("en-IN", {
+                timeZone: "Asia/Kolkata",
+              })}{" "}
+              · {p.status}
             </p>
             <ReceiptLink id={p.invoiceId} />
             <div className="flex gap-3">
@@ -381,13 +422,18 @@ export function History() {
         {d.waiting.map((w) => (
           <article className="mt-4 space-y-2" key={w.id}>
             <p className="text-sm">
-              {new Date(w.startsAt).toLocaleString("en-IN",{timeZone:"Asia/Kolkata"})} · {w.status}
+              {new Date(w.startsAt).toLocaleString("en-IN", {
+                timeZone: "Asia/Kolkata",
+              })}{" "}
+              · {w.status}
             </p>
             {w.status === "OFFERED" && (
               <p className="text-orange-500 text-sm">
                 A place is held until{" "}
-                {new Date(w.offerUntil!).toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata"})}. Review
-                the hold above to accept or release it.
+                {new Date(w.offerUntil!).toLocaleTimeString("en-IN", {
+                  timeZone: "Asia/Kolkata",
+                })}
+                . Review the hold above to accept or release it.
               </p>
             )}
             {w.status === "WAITING" && (
@@ -413,8 +459,10 @@ export function History() {
             className="mt-5 space-y-3 border-t border-current/10 pt-4"
           >
             <p>
-              {new Date(o.createdAt).toLocaleDateString("en-IN",{timeZone:"Asia/Kolkata"})} ·{" "}
-              {o.delivery ? "Delivery" : "Club pickup"} · {o.status}
+              {new Date(o.createdAt).toLocaleDateString("en-IN", {
+                timeZone: "Asia/Kolkata",
+              })}{" "}
+              · {o.delivery ? "Delivery" : "Club pickup"} · {o.status}
             </p>
             {o.orderLines.map((l) => (
               <p className="text-sm" key={l.id}>
