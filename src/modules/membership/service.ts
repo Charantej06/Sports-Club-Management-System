@@ -6,6 +6,8 @@ import { issueMembershipInvoice } from "@/modules/billing/service";
 import { ageAt } from "./rules";
 import { roles, type Actor } from "@/modules/operations/core";
 import type { PaymentMethod } from "@/modules/billing/service";
+import { scheduleReminders } from "@/modules/mail/reminders";
+import { verifiedPayment } from "@/modules/billing/gateway-context";
 
 export const purchaseSchema = z
   .object({
@@ -24,7 +26,8 @@ export async function purchaseMembership(
   now = new Date(),
   staff?: { actor: Actor; method: PaymentMethod },
 ) {
-  if (staff) roles(staff.actor, ["OWNER", "RECEPTION"]);
+  const gateway = staff?.method === "GATEWAY" && verifiedPayment.getStore()?.userId === userId;
+  if (staff && !gateway) roles(staff.actor, ["OWNER", "RECEPTION"]);
   const checkoutUser = staff?.actor.id || userId;
   const fingerprint = createHash("sha256")
     .update(
@@ -196,13 +199,13 @@ export async function purchaseMembership(
         details: {
           invoiceId: invoice.id,
           paymentSource:
-            staff && staff.method !== "LOCAL"
+            gateway ? "GATEWAY_VERIFIED" : staff && staff.method !== "LOCAL"
               ? "MANUAL_RECORDED"
               : "LOCAL_SIMULATED",
         },
       },
     });
-    // Notification/reminder integrations will attach jobs here in stage 3.
+    await scheduleReminders(tx, userId, now);
     const result = {
       membershipId: membership.id,
       invoiceId: invoice.id,

@@ -41,4 +41,5 @@ jobs:
             if curl -fsS http://localhost:3000/api/health; then break; fi
             sleep 2
           done
+          curl -fsS http://localhost:3000/api/health
           npm run test:integration

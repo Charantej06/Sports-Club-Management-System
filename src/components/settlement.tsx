@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useAction, Feedback, PaymentMethod } from "./operations-ui";
+import { GatewayCheckout, usePaymentModes } from "./gateway-checkout";
 export function Settlement({
   id,
   outstanding,
@@ -16,6 +17,7 @@ export function Settlement({
   const action = useAction(),
     router = useRouter();
   const [method, setMethod] = useState("LOCAL");
+  const modes = usePaymentModes();
   return (
     <form
       className="no-print mt-6 space-y-4"
@@ -38,7 +40,13 @@ export function Settlement({
         );
       }}
     >
-      <h2 className="font-semibold">Settle this clubhouse invoice</h2>
+      <h2 className="font-semibold">Settle this invoice</h2>
+      {!staff && modes.data?.gateway && (
+        <GatewayCheckout
+          input={{ kind: "invoice", targetId: id }}
+          onDone={() => router.refresh()}
+        />
+      )}
       <PaymentMethod value={method} onChange={setMethod} staff={staff} />
       <label className="block">
         Amount ₹ (blank = full outstanding)
@@ -55,7 +63,7 @@ export function Settlement({
         Local test payments collect no funds. Staff-recorded cash/card/UPI
         payments require an actual payment at the club.
       </p>
-      <Button disabled={action.isPending}>
+      <Button disabled={action.isPending || (!staff && !modes.data?.local)}>
         {action.isPending ? "Processing…" : "Record settlement"}
       </Button>
       <Feedback action={action} />

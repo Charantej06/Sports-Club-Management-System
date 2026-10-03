@@ -12,5 +12,8 @@ export const settingsSchema = z.object({
   tabDueDays:z.number().int().min(1).max(90).optional(),
   address: z.string().trim().min(5).max(200), contactEmail: z.email(), contactPhone: z.string().min(7).max(25),
   reminderDays: z.array(z.number().int().min(0).max(90)).min(1).max(5),
+  reminderHour: z.number().int().min(0).max(23).optional(),
+  payrollTaxBps: z.number().int().min(0).max(10000).optional(),
+  payrollTaxLabel: z.string().trim().min(2).max(100).optional(),
 }).strict().refine(data => data.closeHour > data.openHour, "Closing hour must be after opening hour.");
 export const roleSchema = z.object({ email: z.email(), role: z.enum(["MEMBER", "RECEPTION", "CASHIER", "KITCHEN", "OWNER"]) }).strict();

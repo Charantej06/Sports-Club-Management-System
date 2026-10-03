@@ -125,7 +125,7 @@ export default async function Receipt({
             </p>
           </div>
         ))}
-        {invoice.department === "CLUBHOUSE" && outstanding > 0 && (
+        {(invoice.department === "CLUBHOUSE" || invoice.originId.startsWith("business:")) && outstanding > 0 && (
           <Settlement
             id={invoice.id}
             outstanding={outstanding}

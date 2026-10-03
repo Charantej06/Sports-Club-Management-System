@@ -1,6 +1,6 @@
 # Champions Club
 
-Stages one and two are complete: secure accounts/memberships, court and trial booking, reception/CRM, online/counter retail and inventory, waiter/POS and kitchen, shared invoices/payments/credits/refunds and durable jobs. Customer pages retain the approved black-and-orange design; staff workspaces retain the white design. Reporting, HR/payroll and external gateway integration remain in PLAN.md for stage three.
+Stages one and two are complete: secure accounts/memberships, court and trial booking, reception/CRM, online/counter retail and inventory, waiter/POS and kitchen, shared invoices/payments/credits/refunds and durable jobs. Customer pages retain the approved black-and-orange design; staff workspaces retain the white design. Stage three adds owner financial/operational reports, reconciliation, business documents, people/payroll, scheduled reminders and a configurable verified Razorpay adapter. Local workflows are implemented; external/hardware acceptance remains open in REQUIREMENTS.md.
 
 ## Local setup
 
@@ -16,7 +16,7 @@ npm run db:seed
 npm run dev
 ```
 
-Open **http://localhost:3000**. In a separate terminal run `npm run worker` for email, hold expiry, waiting offers and CRM follow-ups. Production-style local run: `npm run build`, then `npm start`. Keep the worker running during normal operation; checkout still rejects expired holds if the worker is temporarily stopped.
+Open **http://localhost:3000**. In a separate terminal run `npm run worker` for email, scheduled membership reminders, hold expiry, waiting offers, CRM follow-ups and verified gateway capture jobs. Production-style local run: `npm run build`, then `npm start`. Keep the worker running during normal operation; checkout still rejects expired holds if the worker is temporarily stopped.
 
 `db:local` uses the installed binaries at `C:/Program Files/PostgreSQL/18/bin`. Override `PG_BIN` for another installation. It creates an isolated persistent cluster in `.local/postgres` bound to **127.0.0.1:5433**. It never edits or uses the existing system cluster on 5432. Stop this cluster with `node scripts/local-postgres.mjs --stop`. On other operating systems, using your own PostgreSQL instance or Compose is recommended; set `DATABASE_URL` accordingly.
 
@@ -72,18 +72,18 @@ Demonstration actions persist. Ananya purchased and renewed Silver during browse
 - `src/modules`: account, membership, billing, bookings, shop, clubhouse, CRM, operations queries/dispatch, public reads and durable mail/job services.
 - `src/lib`: Prisma connection, Better Auth, server session/role guards, errors and client helpers.
 - `src/components/ui`: shadcn-style Radix/CVA primitives customized for both club themes; `components.json` is ready for additional shadcn components.
-- `prisma`: schema, idempotent seed and three versioned migrations with exclusion/check constraints, quota/capacity triggers, calendar locks and immutable invoice guards.
+- `prisma`: schema, idempotent seed and seven versioned migrations with exclusion/check constraints, quota/capacity triggers, calendar locks and immutable invoice guards.
 - `src/worker.ts`: separate durable-job process, transactional outbox, SKIP LOCKED claims, stale-lease recovery and retry backoff.
 
 See [API.md](API.md) for endpoint contracts and [SPEC.md](SPEC.md) for the full brief, assumptions and acceptance criteria. Money is integer paise; discounts round half-up once. Dates persist as UTC instants; the club timezone is Asia/Kolkata. Identity/role/ownership checks run server-side. Checkout and profile changes serialize per user; invoice origin and idempotency keys have unique constraints. An issued membership, invoice, payment allocation and checkout result commit together.
 
 ## Integration modes and LAN use
 
-`PAYMENT_MODE=local` enables **LOCAL_SIMULATED** payments and labelled test receipts; no funds move. Local online checkout is disabled with 503 in other modes until a gateway adapter is implemented. Authorized staff can record **MANUAL_RECORDED** cash/card/UPI payments and partial settlements. These records are not gateway confirmations. Local refunds are simulated/recorded; manual refunds are pending until staff records repayment. No current workflow creates a gateway-verified payment.
+`PAYMENT_MODE=local` enables **LOCAL_SIMULATED** payments and labelled test receipts; no funds move. Use PAYMENT_MODE=razorpay only with the configured adapter below; other unconfigured modes return 503. Authorized staff can record **MANUAL_RECORDED** cash/card/UPI payments and partial settlements. These records are not gateway confirmations. Local refunds are simulated/recorded; manual refunds are pending until staff records repayment. The optional Razorpay adapter creates GATEWAY_VERIFIED allocations only after server verification of captured payments.
 
-`EMAIL_MODE=local` stores verification/reset messages in PostgreSQL. `EMAIL_MODE=smtp` uses Nodemailer and requires `SMTP_HOST`, `SMTP_PORT`, optional `SMTP_USER`/`SMTP_PASSWORD`, and `EMAIL_FROM`. SMTP was not configured or tested. Local mail processing resumes safely after a crash; real SMTP is at-least-once delivery and can duplicate an email if a process dies after provider acceptance but before saving delivery status. Provider deduplication is a stage-three integration.
+`EMAIL_MODE=local` stores verification/reset messages in PostgreSQL. `EMAIL_MODE=smtp` uses Nodemailer and requires `SMTP_HOST`, `SMTP_PORT`, optional `SMTP_USER`/`SMTP_PASSWORD`, and `EMAIL_FROM`. SMTP was not configured or tested. Local mail processing resumes safely after a crash; real SMTP is at-least-once delivery and can duplicate an email if a process dies after provider acceptance but before saving delivery status. The worker uses stable Message-ID and transactional per-message dispatch locks, but SMTP itself does not guarantee exactly-once provider acceptance.
 
-For LAN operation, change `BETTER_AUTH_URL` to the host's LAN origin and list all exact permitted origins in `TRUSTED_ORIGINS` (comma-separated), then restart. The app listens on 0.0.0.0; PostgreSQL remains loopback-only. Internet is unnecessary for local operations. The cart persists a draft, but reservations/payments require the server. Broader disconnected-device UX remains planned. ZXing camera scanning requires HTTPS or localhost and camera permission; manual entry is available.
+For LAN operation, change `BETTER_AUTH_URL` to the host's LAN origin and list all exact permitted origins in `TRUSTED_ORIGINS` (comma-separated), then restart. The app listens on 0.0.0.0; PostgreSQL remains loopback-only. Internet is unnecessary for local operations. The cart persists a draft, but reservations/payments require the server. Counter/POS item drafts now persist per staff account on the device; mutations fail visibly while disconnected and do not automatically replay. Review the table/member after reconnecting. ZXing camera scanning requires HTTPS or localhost and camera permission; manual entry is available.
 
 ## Verification
 
@@ -121,7 +121,7 @@ GitHub Actions configuration is included but has not run remotely. Git was left 
 
 ## Remaining stages
 
-Stage three retains reconciliation/reports/HR/payroll, scheduled membership-expiry reminders, verified external payment integrations, exports and broader disconnected-device drafts. The stage-two operational workflows are complete. See PLAN.md and SPEC.md.
+All local Stage 3 workflows are implemented. Deployment acceptance remains open for actual SMTP/Razorpay, Docker, remote CI, camera hardware and physical disconnected LAN-device verification. See PLAN.md, REQUIREMENTS.md and JUDGING.md for the full audit and limits.
 
 ## Operational policies
 
@@ -134,3 +134,38 @@ Customer cancellations respect the configured notice period; checked-in sessions
 POS additions retain notes and create a new ticket revision/invoice. Items may be cancelled before cooking; later financial adjustments require an authorized staff reason. Bar items require age 21+ from a member birth date or staff-attested guest eligibility. Tables close only when all remaining tickets are served/cancelled and invoices settled. Manual refund recording confirms staff repayment; it does not send money through a gateway.
 
 PostgreSQL connections explicitly use UTC, including the pg adapter, so a host configured for Asia/Kolkata cannot shift timestamptz values. UI display and booking day/week boundaries use Asia/Kolkata.
+
+
+## Stage three workspaces and reminders
+
+Owner Staff desk opens live operational actions and reports. Today/week/month/custom filters use inclusive Asia/Kolkata club dates. Sales are invoices issued in the range, collections are payments received in the range, credits and actual recorded refunds have their own dates, and outstanding includes older invoices through the end date. Click a total/department/method for all supporting records; exports use integer paise and escape spreadsheet formulas. Unallocated captured provider funds are visible separately. Utilization excludes current maintenance closures and counts a social court once; its denominator uses the current opening-hour policy.
+
+Business documents saves quotes and issues one immutable invoice. It does not reserve courts/stock or activate a membership; fulfillment uses the normal department service. Receipts and quotes are printable. Cash reconciliation calculates opening float + linked cash receipts − actual linked refunds − payouts. Counted differences require an explanation, and closed shifts are immutable. Historical cash without a shift is explicitly unassigned.
+
+People & payroll configures existing staff accounts, salary and activity; schedules/cancels shifts; approves/rejects leave; and finalizes immutable employee/pay/withholding snapshots. Staff can view only their own employment and payslips. Default withholding is 0%; the owner edits label/rate in Business settings. Leave salary adjustments are explicit, and bank salary disbursement/statutory filing are external. Seeded Neha/Dev/Kabir salaries are ₹28,000/₹26,000/₹35,000 per month, preserved on rerun.
+
+Reminder defaults: seven days, one day and expiry day at 09:00 Asia/Kolkata. The owner edits offsets/hour in Business settings. Purchase/renewal records jobs/messages transactionally; the worker synchronizes existing terms within one minute. New renewals suppress queued notices for earlier terms, and dispatch rechecks the latest term under the membership lock. Messages include name, plan, expiry and `/memberships` renewal link.
+
+Reminders & delivery shows actual per-message mode, scheduled time, delivery state, attempts and failures. Retry delivery is available only for failed messages. Local test inbox delivery sends no external email. SMTP configuration requires EMAIL_MODE=smtp, SMTP_HOST/PORT, EMAIL_FROM and optional SMTP_USER/PASSWORD; use TLS-enabled credentials from your mail service and restart app/worker. Failed configuration retries, then becomes FAILED, rather than claiming delivery. A post-provider-acceptance crash can still duplicate SMTP delivery; local database delivery is repeat-safe.
+
+## Optional Razorpay configuration
+
+Local judging needs no payment credentials or internet. To test a real adapter, set PAYMENT_MODE=razorpay with RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET and a separate RAZORPAY_WEBHOOK_SECRET, then restart app/worker. Begin with provider **test** keys. Configure automatic capture and a `payment.captured` webhook at the externally reachable HTTPS `/api/payments/webhook` endpoint. The provider checkout script requires internet; core local operations do not. Follow [Razorpay's integration guide](https://razorpay.com/docs/payments/payment-gateway/web-integration/standard/build-integration/).
+
+Membership, booking/social/shop holds and eligible invoice settlement use server-created orders. Callback/raw webhook signatures, fetched capture status, order, INR currency and amount are verified before shared checkout. Durable capture jobs recover browser interruption; duplicate events and retries do not allocate twice. Provider success is never inferred from a client-selected method. Mock-provider tests exercise signature/capture/amount/retry handling without moving funds; **no sandbox/live test has been performed on this host**.
+
+If a captured checkout expired/changed, it does not reclaim scarce stock/courts or activate membership. It becomes NEEDS_REVIEW, creates an owner notification and remains an unallocated collection in reports. Arrange repayment in the provider dashboard. The owner can verify one processed full exceptional repayment by provider refund ID in Reminders & delivery; this updates repayment/report history without initiating another transfer. Ordinary invoice gateway refunds are repaid externally before staff records confirmation in Billing. Split exceptional repayments and automatic provider refund initiation are outside this implementation.
+
+## Contribution workflow
+
+When Git use is authorized, each teammate should use their own named branch, make focused commits for their actual work, run the checks, and open a PR for review. Do not attribute generated work or fabricated commits to teammates. Stage 3 implementation used no Git/GitHub actions. The subsequent user request authorizes publication to STAGE3 in three focused commits, with two minutes before commit 2 and three minutes before commit 3. Both author and committer use Sanjay <sanjay.practically@gmail.com>; main is unchanged.
+
+## Stage three verification — 3 October 2026
+
+ESLint, TypeScript, all **4 unit tests**, all **43 real-PostgreSQL/HTTP integration tests** and the optimized production build pass. All seven migrations are up to date and `/api/health` returns `ok`. The added tests cover exact report records/CSV, cash closing races, HR access and immutable snapshots, due reminders/renewal suppression/SMTP failure, duplicate verified capture and processed exceptional repayment. Provider requests in tests are mocked; no real funds or external email were sent.
+
+Browser inspection covered the approved landing, separate booking/membership/shop/clubhouse/account pages, QR card, owner reports/drill-downs, business documents, reconciliation, payroll, reception, POS, kitchen and reminder states. Desktop and 390px customer/staff layouts were inspected, including keyboard sport selection and report drill-down. Final polish disables started slots, gives report/slot buttons descriptive accessible labels, corrects social loading/error states and keeps shop search usable alongside the category selector. Saved proof is in `.local/screenshots/stage3-*.jpg`.
+
+The application was restarted and retained the ₹1,000 local business invoice. Browser settlement shows an explicitly simulated receipt, ₹1,000 allocated and ₹0 outstanding; owner reports agree. A zero-float/count cash shift closed balanced, and Neha's September demo payslip preserves ₹28,000 salary/0% withholding. These are local demonstrations, with no salary disbursement or money collected. Production app and worker were restarted after testing.
+
+See [REQUIREMENTS.md](REQUIREMENTS.md) for every specification area and all limits, [JUDGING.md](JUDGING.md) for demo accounts and the connected walkthrough, and [handoff.md](handoff.md) for continuation details. Docker, remote CI, physical camera/LAN devices and actual SMTP/Razorpay acceptance remain unperformed. The Prisma/pg concurrent-query deprecation warning is non-blocking; assertions pass.
