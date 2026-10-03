@@ -42,5 +42,5 @@ export async function lookupMember(query: string) {
   } else user = await db.user.findFirst({ where: { OR: [{ championsId: query.toUpperCase() }, { email: query.toLowerCase() }] } });
   if (!user) throw new AppError(404, "NOT_FOUND", "Member not found. Use an exact Champions ID or email.");
   const membership = await currentMembership(user.id);
-  return { name: user.name, championsId: user.championsId, membership: membership ? { plan: membership.planSnapshot, endsAt: membership.endsAt } : null };
+  return { id: user.id, name: user.name, championsId: user.championsId, membership: membership ? { plan: membership.planSnapshot, endsAt: membership.endsAt } : null };
 }

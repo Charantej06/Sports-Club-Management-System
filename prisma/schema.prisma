@@ -58,6 +58,7 @@ model User {
   payments      Payment[]
   checkouts     Checkout[]
   reservations  Reservation[]
+  bills KitchenOrder[]
   participation SocialParticipant[]
   waitlist      WaitlistEntry[]
   orders        ShopOrder[]
@@ -126,6 +127,10 @@ model ClubSettings {
   address            String @default("12 Sports Avenue, Bengaluru")
   contactEmail       String @default("hello@champions.local")
   contactPhone       String @default("+91 80 4567 8900")
+  trialDiscountBps Int @default(5000)
+  socialPricePaise Int @default(30000)
+  deliveryFeePaise Int @default(10000)
+  tabDueDays Int @default(7)
   updatedAt          DateTime @updatedAt
 }
 model MembershipPlan {
@@ -181,8 +186,8 @@ model Checkout {
 model Invoice {
   id            String @id @default(cuid())
   number        String @unique
-  userId        String
-  user          User @relation(fields: [userId], references: [id])
+  userId        String?
+  user          User? @relation(fields: [userId], references: [id])
   department    Department
   originId      String
   subtotalPaise Int
@@ -191,6 +196,7 @@ model Invoice {
   currency      String @default("INR")
   customerName  String
   customerEmail String
+  dueAt DateTime? @db.Timestamptz(3)
   issuedAt      DateTime @default(now())
   lines         InvoiceLine[]
   allocations   PaymentAllocation[]
@@ -212,8 +218,8 @@ model InvoiceLine {
 }
 model Payment {
   id          String @id @default(cuid())
-  userId      String
-  user        User @relation(fields: [userId], references: [id])
+  userId      String?
+  user        User? @relation(fields: [userId], references: [id])
   method      String
   source      String
   amountPaise Int
@@ -239,6 +245,8 @@ model Credit {
   amountPaise Int
   reason      String
   actorId     String
+  originId String? @unique
+  refund Refund?
   createdAt   DateTime @default(now())
   @@index([invoiceId])
 }
@@ -302,8 +310,8 @@ model Court {
 }
 model Reservation {
   id         String @id @default(cuid())
-  userId     String
-  user       User @relation(fields: [userId], references: [id])
+  userId     String?
+  user       User? @relation(fields: [userId], references: [id])
   courtId    String
   court      Court @relation(fields: [courtId], references: [id])
   startsAt   DateTime @db.Timestamptz(3)
@@ -312,6 +320,13 @@ model Reservation {
   status     ReservationStatus
   holdUntil  DateTime?
   pricePaise Int
+  kind String @default("STANDARD")
+  guestName String?
+  guestEmail String?
+  trial Boolean @default(false)
+  priceSnapshot Json @default("{}")
+  invoiceId String? @unique
+  cancellationReason String?
   checkedInAt DateTime?
   createdAt  DateTime @default(now())
   socialEvent SocialEvent?
@@ -325,6 +340,7 @@ model CourtClosure {
   startsAt DateTime @db.Timestamptz(3)
   endsAt   DateTime @db.Timestamptz(3)
   reason   String
+  active Boolean @default(true)
   @@index([courtId, startsAt])
 }
 model SocialEvent {
@@ -332,6 +348,10 @@ model SocialEvent {
   reservationId String @unique
   reservation   Reservation @relation(fields: [reservationId], references: [id])
   capacity      Int
+  title String @default("Friday social play")
+  pricePaise Int @default(30000)
+  active Boolean @default(true)
+  waitlist WaitlistEntry[]
   participants  SocialParticipant[]
 }
 model SocialParticipant {
@@ -340,6 +360,14 @@ model SocialParticipant {
   event   SocialEvent @relation(fields: [eventId], references: [id])
   userId  String
   user    User @relation(fields: [userId], references: [id])
+  status String @default("CONFIRMED")
+  holdUntil DateTime? @db.Timestamptz(3)
+  pricePaise Int @default(0)
+  priceSnapshot Json @default("{}")
+  invoiceId String? @unique
+  checkedInAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId, status])
   @@unique([eventId, userId])
 }
 model WaitlistEntry {
@@ -352,6 +380,10 @@ model WaitlistEntry {
   offeredAt  DateTime?
   offerUntil DateTime?
   status     String @default("WAITING")
+  eventId String?
+  event SocialEvent? @relation(fields: [eventId], references: [id])
+  reservationId String?
+  participantId String?
   @@unique([userId, courtId, startsAt])
   @@index([courtId, startsAt, createdAt])
 }
@@ -376,6 +408,7 @@ model ProductVariant {
   pricePaise  Int
   stock       Int
   reserved    Int @default(0)
+  orderLines ShopOrderLine[]
   movements   StockMovement[]
   @@index([productId])
 }
@@ -392,17 +425,27 @@ model StockMovement {
 }
 model ShopOrder {
   id        String @id @default(cuid())
-  userId    String
-  user      User @relation(fields: [userId], references: [id])
+  userId    String?
+  user      User? @relation(fields: [userId], references: [id])
   status    String @default("PENDING")
   delivery  Boolean @default(false)
   address   Json?
   lines     Json
+  guestName String?
+  guestEmail String?
+  channel String @default("ONLINE")
+  holdUntil DateTime? @db.Timestamptz(3)
+  priceSnapshot Json @default("{}")
+  invoiceId String? @unique
+  totalPaise Int @default(0)
+  fulfilledAt DateTime?
+  tracking String?
+  orderLines ShopOrderLine[]
   createdAt DateTime @default(now())
   @@index([userId, createdAt])
 }
 
-// Stage 3 operational foundations; no POS or payroll mutations are exposed yet.
+// Clubhouse operations are implemented; payroll/reporting remains stage three.
 model MenuItem {
   id          String @id
   name        String
@@ -425,6 +468,13 @@ model KitchenOrder {
   table       DiningTable @relation(fields: [tableId], references: [id])
   memberId    String?
   items       Json
+  member User? @relation(fields: [memberId], references: [id])
+  guestName String?
+  status String @default("OPEN")
+  tabEnabled Boolean @default(false)
+  ageConfirmed Boolean @default(false)
+  closedAt DateTime?
+  tickets KitchenTicket[]
   preparation String @default("INCOMING")
   paymentStatus String @default("OPEN")
   version     Int @default(1)
@@ -443,6 +493,7 @@ model Lead {
   status     String @default("NEW")
   followUpAt DateTime?
   createdAt  DateTime @default(now())
+  quotes LeadQuote[]
   activities LeadActivity[]
   @@index([status, followUpAt])
 }
@@ -456,6 +507,7 @@ model LeadActivity {
 }
 model StaffNotification {
   id        String @id @default(cuid())
+  dedupeKey String? @unique
   kind      String
   entityId  String
   message   String
@@ -508,4 +560,69 @@ model CashShift {
   discrepancyReason String?
   openedAt           DateTime @default(now())
   closedAt           DateTime?
+}
+
+model ShopOrderLine {
+  id String @id @default(cuid())
+  orderId String
+  order ShopOrder @relation(fields: [orderId], references: [id])
+  variantId String
+  variant ProductVariant @relation(fields: [variantId], references: [id])
+  name String
+  label String
+  quantity Int
+  unitPaise Int
+  discountPaise Int
+  totalPaise Int
+  returned Int @default(0)
+  @@unique([orderId, variantId])
+}
+model Refund {
+  id String @id @default(cuid())
+  creditId String @unique
+  credit Credit @relation(fields: [creditId], references: [id])
+  amountPaise Int
+  method String
+  source String
+  status String @default("RECORDED")
+  actorId String
+  reference String @unique
+  createdAt DateTime @default(now())
+}
+model KitchenTicket {
+  id String @id @default(cuid())
+  orderId String
+  order KitchenOrder @relation(fields: [orderId], references: [id])
+  revision Int
+  preparation String @default("INCOMING")
+  version Int @default(1)
+  invoiceId String? @unique
+  lines KitchenLine[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([orderId, revision])
+  @@index([preparation, createdAt])
+}
+model KitchenLine {
+  id String @id @default(cuid())
+  ticketId String
+  ticket KitchenTicket @relation(fields: [ticketId], references: [id])
+  menuId String
+  name String
+  quantity Int
+  unitPaise Int
+  discountPaise Int
+  totalPaise Int
+  note String
+  status String @default("ACTIVE")
+}
+model LeadQuote {
+  id String @id @default(cuid())
+  leadId String
+  lead Lead @relation(fields: [leadId], references: [id])
+  planId String
+  snapshot Json
+  totalPaise Int
+  validUntil DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now())
 }

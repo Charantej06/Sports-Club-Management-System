@@ -10,6 +10,6 @@ export async function publicData() {
   return {
     sports, plans: plans.map(({ updatedAt, ...plan }) => ({ ...plan, planVersion: updatedAt.toISOString() })),
     products: products.map(p => ({ ...p, variants: p.variants.map(v => ({ id: v.id, label: v.label, pricePaise: v.pricePaise, available: Math.max(0, v.stock - v.reserved) })) })),
-    menu, settings: { timezone: settings.timezone, openHour: settings.openHour, closeHour: settings.closeHour, bookingWindowDays: settings.bookingWindowDays, address: settings.address, contactEmail: settings.contactEmail, contactPhone: settings.contactPhone },
+    menu, settings: { timezone: settings.timezone, openHour: settings.openHour, closeHour: settings.closeHour, bookingWindowDays: settings.bookingWindowDays, dailySessionLimit:settings.dailySessionLimit,cancellationHours:settings.cancellationHours,deliveryFeePaise:settings.deliveryFeePaise, address: settings.address, contactEmail: settings.contactEmail, contactPhone: settings.contactPhone },
   };
 }
