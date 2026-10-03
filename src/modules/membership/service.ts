@@ -4,20 +4,28 @@ import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { issueMembershipInvoice } from "@/modules/billing/service";
 import { ageAt } from "./rules";
+import { TERM_MONTHS, addMonths, termDays, termPrice, type TermMonths } from "./terms";
 import { roles, type Actor } from "@/modules/operations/core";
 import type { PaymentMethod } from "@/modules/billing/service";
 import { scheduleReminders } from "@/modules/mail/reminders";
 import { verifiedPayment } from "@/modules/billing/gateway-context";
+import { money } from "@/lib/utils";
 
 export const purchaseSchema = z
   .object({
     planId: z.enum(["gold", "silver", "junior"]),
+    // Term length in months: 1 month, 3 months or annual (12).
+    months: z
+      .number()
+      .int()
+      .refine((m): m is TermMonths => (TERM_MONTHS as readonly number[]).includes(m), "Choose 1, 3 or 12 months.")
+      .default(1),
     action: z.enum(["purchase", "renew", "change"]),
     acceptPolicy: z.literal(true),
     planVersion: z.iso.datetime(),
   })
   .strict();
-export type PurchaseInput = z.infer<typeof purchaseSchema>;
+export type PurchaseInput = z.input<typeof purchaseSchema>;
 
 export async function purchaseMembership(
   userId: string,
@@ -26,6 +34,7 @@ export async function purchaseMembership(
   now = new Date(),
   staff?: { actor: Actor; method: PaymentMethod },
 ) {
+  const months = (input.months ?? 1) as TermMonths;
   const gateway = staff?.method === "GATEWAY" && verifiedPayment.getStore()?.userId === userId;
   if (staff && !gateway) roles(staff.actor, ["OWNER", "RECEPTION"]);
   const checkoutUser = staff?.actor.id || userId;
@@ -33,6 +42,7 @@ export async function purchaseMembership(
     .update(
       JSON.stringify({
         planId: input.planId,
+        months,
         action: input.action,
         acceptPolicy: input.acceptPolicy,
         planVersion: input.planVersion,
@@ -142,7 +152,8 @@ export async function purchaseMembership(
         "JUNIOR_ELIGIBILITY",
         "Junior membership requires a date of birth and age under 18 at the start of the term.",
       );
-    const endsAt = new Date(startsAt.getTime() + plan.durationDays * 86400000);
+    const price = termPrice(plan, months);
+    const endsAt = addMonths(startsAt, months);
     if (input.action === "change") {
       // Immediate plan change: preserve the original term and invoice as history.
       await tx.membership.updateMany({
@@ -156,10 +167,13 @@ export async function purchaseMembership(
         planId: plan.id,
         startsAt,
         endsAt,
-        pricePaise: plan.pricePaise,
+        pricePaise: price.totalPaise,
         planSnapshot: {
           name: plan.name,
-          durationDays: plan.durationDays,
+          months,
+          durationDays: termDays(startsAt, months),
+          monthlyPaise: plan.pricePaise,
+          discountBps: price.grossPaise ? Math.round((price.discountPaise * 10000) / price.grossPaise) : 0,
           courtDiscountBps: plan.courtDiscountBps,
           shopDiscountBps: plan.shopDiscountBps,
           foodDiscountBps: plan.foodDiscountBps,
@@ -172,8 +186,8 @@ export async function purchaseMembership(
       name: user.name,
       email: user.email,
       membershipId: membership.id,
-      description: `${plan.name} membership · ${plan.durationDays} days · ${input.action}`,
-      pricePaise: plan.pricePaise,
+      description: `${plan.name} membership · ${months === 12 ? "annual (12 months)" : months === 1 ? "1 month" : `${months} months`}${price.discountPaise ? ` · ${money(price.discountPaise)} term discount` : ""} · ${input.action}`,
+      pricePaise: price.totalPaise,
       actor: staff?.actor,
       method: staff?.method,
     });

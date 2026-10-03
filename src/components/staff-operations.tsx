@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { api } from "@/lib/api-client";
 import { money } from "@/lib/utils";
+import { TERM_LABELS, TERM_MONTHS, termLabel } from "@/modules/membership/terms";
 import type {
   Court,
   Reservation,
@@ -565,6 +566,7 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
                 input: {
                   userId: member.id,
                   planId: p.id,
+                  months: Number(f.get("months")),
                   planVersion: new Date(p.updatedAt).toISOString(),
                   action: String(f.get("action")),
                   acceptPolicy: true,
@@ -581,7 +583,18 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
             <select name="planId">
               {plans.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} · {money(p.pricePaise)} · {p.durationDays} days
+                  {p.name} · {money(p.pricePaise)} / month
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Term
+            <select name="months" defaultValue="1">
+              {TERM_MONTHS.map((m) => (
+                <option key={m} value={m}>
+                  {TERM_LABELS[m]}
+                  {m > 1 ? " · discount applied" : ""}
                 </option>
               ))}
             </select>
@@ -725,6 +738,7 @@ export function CRM() {
     notifications: Json<StaffNotification>[];
   }>("crm");
   const action = useAction();
+  const [quoteMonths, setQuoteMonths] = useState<number>(1);
   return (
     <div className="space-y-6">
       <div className="surface">
@@ -866,6 +880,20 @@ export function CRM() {
             </Button>
           </form>
           <div className="flex flex-wrap gap-3">
+            <label className="flex items-center gap-2 text-xs">
+              Quote term
+              <select
+                className="w-auto"
+                value={quoteMonths}
+                onChange={(e) => setQuoteMonths(Number(e.target.value))}
+              >
+                {TERM_MONTHS.map((m) => (
+                  <option key={m} value={m}>
+                    {TERM_LABELS[m]}
+                  </option>
+                ))}
+              </select>
+            </label>
             {["gold", "silver", "junior"].map((planId) => (
               <Button
                 size="sm"
@@ -875,7 +903,7 @@ export function CRM() {
                   action.mutate({
                     area: "crm",
                     id: l.id,
-                    input: { action: "quote", planId },
+                    input: { action: "quote", planId, months: quoteMonths },
                   })
                 }
               >
@@ -915,7 +943,7 @@ export function CRM() {
                   {new Date(q.validUntil).toLocaleDateString("en-IN", {
                     timeZone: "Asia/Kolkata",
                   })}{" "}
-                  · {(q.snapshot as { durationDays: number }).durationDays} days
+                  · {termLabel((q.snapshot as { months?: number }).months, (q.snapshot as { durationDays: number }).durationDays)}
                   · court{" "}
                   {(q.snapshot as { courtDiscountBps: number })
                     .courtDiscountBps / 100}

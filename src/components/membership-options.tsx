@@ -5,7 +5,8 @@ import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, X } from "lucide-react";
-import { PlanCard, type PlanView } from "./plan-card";
+import { PlanCard, TermPicker, type PlanView } from "./plan-card";
+import { TERM_LABELS, addMonths, termPrice, type TermMonths } from "@/modules/membership/terms";
 import { Button } from "./ui/button";
 import { api } from "@/lib/api-client";
 import { money, date } from "@/lib/utils";
@@ -29,6 +30,7 @@ export function MembershipOptions({
     enabled: signedIn,
   });
   const [plan, setPlan] = useState<PlanView | null>(null);
+  const [months, setMonths] = useState<TermMonths>(3);
   const [accepted, setAccepted] = useState(false);
   const [key, setKey] = useState("");
   const current = me.data && activeTerm(me.data.memberships);
@@ -44,6 +46,8 @@ export function MembershipOptions({
       : me.data?.memberships.length
         ? "renew"
         : "purchase";
+  const price = plan ? termPrice(plan, months) : null;
+  const startsAt = action === "renew" && latest ? new Date(latest.endsAt) : new Date();
   const mutation = useMutation({
     mutationFn: () =>
       api<{ invoiceId: string }>("/api/me/membership", {
@@ -51,6 +55,7 @@ export function MembershipOptions({
         headers: { "Idempotency-Key": key },
         body: JSON.stringify({
           planId: plan?.id,
+          months,
           action,
           acceptPolicy: true,
           planVersion: plan?.planVersion,
@@ -66,9 +71,13 @@ export function MembershipOptions({
   });
   return (
     <>
+      <div className="mb-8 flex flex-col items-start gap-3">
+        <p className="text-sm text-neutral-300" id="term-label">How long would you like to join for?</p>
+        <TermPicker plans={plans} value={months} onChange={setMonths} />
+      </div>
       <div className="grid gap-5 lg:grid-cols-3">
         {plans.map((p) => (
-          <PlanCard key={p.id} plan={p}>
+          <PlanCard key={p.id} plan={p} months={months}>
             {!signedIn ? (
               <Button asChild variant={p.id === "gold" ? "default" : "outline"}>
                 <Link href="/login">
@@ -130,26 +139,35 @@ export function MembershipOptions({
             >
               <X size={19} />
             </Dialog.Close>
+            <div className="mt-6">
+              <TermPicker plans={plan ? [plan] : plans} value={months} onChange={setMonths} />
+            </div>
             <div className="my-7 space-y-4 rounded border border-white/10 p-5 text-sm">
               <div className="flex justify-between">
                 <span>{plan?.name} membership</span>
-                <strong>{plan && money(plan.pricePaise)}</strong>
+                <strong>{price && money(price.grossPaise)}</strong>
               </div>
               <div className="flex justify-between text-neutral-400">
                 <span>Term</span>
-                <span>{plan?.durationDays} days</span>
+                <span>{TERM_LABELS[months]}</span>
               </div>
+              {price && price.discountPaise > 0 && (
+                <div className="flex justify-between text-orange-400">
+                  <span>{months === 12 ? "Annual" : "3-month"} discount</span>
+                  <span>−{money(price.discountPaise)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-neutral-400">
                 <span>Starts</span>
-                <span>
-                  {date(
-                    action === "renew" && latest ? latest.endsAt : new Date(),
-                  )}
-                </span>
+                <span>{date(startsAt)}</span>
+              </div>
+              <div className="flex justify-between text-neutral-400">
+                <span>Valid until</span>
+                <span>{date(addMonths(startsAt, months))}</span>
               </div>
               <div className="flex justify-between border-t border-white/10 pt-4">
                 <span>Total · INR</span>
-                <strong>{plan && money(plan.pricePaise)}</strong>
+                <strong>{price && money(price.totalPaise)}</strong>
               </div>
             </div>
             <p className="notice">
@@ -193,6 +211,7 @@ export function MembershipOptions({
                       kind: "membership",
                       input: {
                         planId: plan?.id,
+                        months,
                         action,
                         acceptPolicy: true,
                         planVersion: plan?.planVersion,
@@ -213,7 +232,7 @@ export function MembershipOptions({
                 disabled={!accepted || mutation.isPending}
                 onClick={() => mutation.mutate()}
               >
-                {mutation.isPending ? "Confirming…" : "Confirm local payment"}
+                {mutation.isPending ? "Confirming…" : `Pay ${price ? money(price.totalPaise) : ""}`}
                 <ArrowUpRight size={16} />
               </Button>
             )}

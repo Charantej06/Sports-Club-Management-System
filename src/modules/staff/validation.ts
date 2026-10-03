@@ -1,5 +1,5 @@
 import { z } from "zod";
-export const planSchema = z.object({ id: z.enum(["gold", "silver", "junior"]), pricePaise: z.number().int().min(100).max(100000000), durationDays: z.number().int().min(1).max(730), courtDiscountBps: z.number().int().min(0).max(10000), shopDiscountBps: z.number().int().min(0).max(10000), foodDiscountBps: z.number().int().min(0).max(10000), freeSessionsWeek: z.number().int().min(0).max(14), active: z.boolean() }).strict();
+export const planSchema = z.object({ id: z.enum(["gold", "silver", "junior"]), pricePaise: z.number().int().min(100).max(100000000), quarterDiscountBps: z.number().int().min(0).max(10000), annualDiscountBps: z.number().int().min(0).max(10000), courtDiscountBps: z.number().int().min(0).max(10000), shopDiscountBps: z.number().int().min(0).max(10000), foodDiscountBps: z.number().int().min(0).max(10000), freeSessionsWeek: z.number().int().min(0).max(14), active: z.boolean() }).strict();
 export const settingsSchema = z.object({
   openHour: z.number().int().min(0).max(22), closeHour: z.number().int().min(1).max(24),
   bookingWindowDays: z.number().int().min(1).max(90), dailySessionLimit: z.number().int().min(1).max(10),
