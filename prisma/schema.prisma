@@ -30,6 +30,11 @@ enum ReservationStatus {
   CANCELLED
   EXPIRED
 }
+enum FacilityStatus {
+  ACTIVE
+  MAINTENANCE
+  INACTIVE
+}
 enum JobStatus {
   PENDING
   RUNNING
@@ -140,8 +145,12 @@ model MembershipPlan {
   id               String @id
   name             String @unique
   description      String
+  // Price for one month. Longer terms are priced from it at checkout.
   pricePaise       Int
-  durationDays     Int    @default(90)
+  // Legacy: the term length is now chosen at checkout (1, 3 or 12 months).
+  durationDays     Int    @default(30)
+  quarterDiscountBps Int  @default(500)
+  annualDiscountBps  Int  @default(1500)
   courtDiscountBps Int    @default(0)
   shopDiscountBps  Int    @default(0)
   foodDiscountBps  Int    @default(0)
@@ -300,6 +309,8 @@ model Sport {
   description String
   image       String
   sortOrder   Int
+  status      FacilityStatus @default(ACTIVE)
+  statusNote  String?
   courts      Court[]
 }
 model Court {
@@ -309,10 +320,11 @@ model Court {
   sport       Sport @relation(fields: [sportId], references: [id])
   hourlyPaise Int
   indoor      Boolean @default(false)
-  active      Boolean @default(true)
+  status      FacilityStatus @default(ACTIVE)
+  statusNote  String?
   reservations Reservation[]
   closures    CourtClosure[]
-  @@index([sportId, active])
+  @@index([sportId, status])
 }
 model Reservation {
   id         String @id @default(cuid())
