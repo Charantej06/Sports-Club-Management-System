@@ -124,6 +124,9 @@ model ClubSettings {
   socialCapacity     Int    @default(12)
   tabLimitPaise      Int    @default(500000)
   reminderDays       Int[]  @default([7, 1, 0])
+  reminderHour       Int @default(9)
+  payrollTaxBps      Int @default(0)
+  payrollTaxLabel    String @default("Configured withholding")
   address            String @default("12 Sports Avenue, Bengaluru")
   contactEmail       String @default("hello@champions.local")
   contactPhone       String @default("+91 80 4567 8900")
@@ -225,6 +228,8 @@ model Payment {
   amountPaise Int
   reference   String @unique
   receivedAt  DateTime @default(now())
+  actorId String?
+  cashShiftId String?
   allocations PaymentAllocation[]
   @@index([userId, receivedAt])
 }
@@ -281,6 +286,7 @@ model MailMessage {
   subject   String
   body      String
   mode      String
+  membershipId String?
   status    String @default("QUEUED")
   sentAt    DateTime?
   createdAt DateTime @default(now())
@@ -520,6 +526,7 @@ model Employee {
   userId      String @unique
   title       String
   salaryPaise Int
+  active Boolean @default(true)
   shifts      StaffShift[]
   leaves      LeaveRequest[]
   payslips    Payslip[]
@@ -530,6 +537,8 @@ model StaffShift {
   employee Employee @relation(fields: [employeeId], references: [id])
   startsAt DateTime
   endsAt   DateTime
+  status String @default("SCHEDULED")
+  cancellationReason String?
 }
 model LeaveRequest {
   id         String @id @default(cuid())
@@ -539,6 +548,9 @@ model LeaveRequest {
   endsAt     DateTime
   reason     String
   status     String @default("PENDING")
+  decidedBy String?
+  decisionReason String?
+  createdAt DateTime @default(now())
 }
 model Payslip {
   id          String @id @default(cuid())
@@ -560,6 +572,59 @@ model CashShift {
   discrepancyReason String?
   openedAt           DateTime @default(now())
   closedAt           DateTime?
+  payouts CashPayout[]
+}
+
+model CashPayout {
+  id String @id @default(cuid())
+  shiftId String
+  shift CashShift @relation(fields: [shiftId], references: [id])
+  amountPaise Int
+  reason String
+  actorId String
+  createdAt DateTime @default(now())
+}
+
+model BusinessQuote {
+  id String @id @default(cuid())
+  customerName String
+  customerEmail String
+  department Department
+  lines Json
+  totalPaise Int
+  validUntil DateTime @db.Timestamptz(3)
+  actorId String
+  invoiceId String? @unique
+  createdAt DateTime @default(now())
+}
+
+model GatewayIntent {
+  id String @id
+  userId String
+  key String
+  fingerprint String
+  kind String
+  targetId String?
+  input Json
+  amountPaise Int
+  orderId String? @unique
+  paymentId String? @unique
+  state String @default("CREATING")
+  result Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([userId, key])
+}
+
+model GatewayRepayment {
+  id String @id @default(cuid())
+  intentId String @unique
+  reference String @unique
+  amountPaise Int
+  department Department
+  actorId String
+  reason String
+  createdAt DateTime @default(now())
 }
 
 model ShopOrderLine {
@@ -588,6 +653,8 @@ model Refund {
   actorId String
   reference String @unique
   createdAt DateTime @default(now())
+  recordedAt DateTime?
+  cashShiftId String?
 }
 model KitchenTicket {
   id String @id @default(cuid())

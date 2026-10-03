@@ -10,6 +10,7 @@ import {
   roles,
   methodSchema,
   reasonSchema,
+  cashLock,
 } from "./core";
 import {
   bookingSchema,
@@ -161,7 +162,7 @@ export async function mutate(request: Request, area: string, id?: string) {
           await tx.$queryRaw`SELECT id FROM "KitchenOrder" WHERE id=${ticket.orderId} FOR UPDATE`;
       } else
         assert(
-          invoice.department === "MEMBERSHIP",
+          invoice.department === "MEMBERSHIP" || invoice.originId.startsWith("business:"),
           "CHECKOUT_REQUIRED",
           "Confirm the booking or order through its checkout.",
         );
@@ -190,7 +191,7 @@ export async function mutate(request: Request, area: string, id?: string) {
       await audit(tx, actor, "refund.record", id, i.reason);
       return tx.refund.update({
         where: { id },
-        data: { status: "RECORDED", actorId: actor.id },
+        data: { status: "RECORDED", actorId: actor.id, recordedAt: new Date(), cashShiftId: current.method === "CASH" ? (await cashLock(tx, actor.id))?.id : null },
       });
     });
   }

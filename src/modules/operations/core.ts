@@ -154,6 +154,10 @@ export function clubDay(at: Date) {
     at,
   );
 }
+export async function cashLock(tx: Tx, actorId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${"cash:" + actorId}, 12))`;
+  return tx.cashShift.findFirst({ where: { actorId, closedAt: null } });
+}
 export function slot(day: string, hour: number) {
   return new Date(`${day}T${String(hour).padStart(2, "0")}:00:00+05:30`);
 }
@@ -164,5 +168,5 @@ export function weekRange(at: Date) {
   const start = slot(d.toISOString().slice(0, 10), 0);
   return { start, end: new Date(+start + 7 * 86400000) };
 }
-export const methodSchema = z.enum(["LOCAL", "CASH", "CARD", "UPI"]);
+export const methodSchema = z.enum(["LOCAL", "CASH", "CARD", "UPI", "GATEWAY"]);
 export const reasonSchema = z.string().trim().min(5).max(300);
