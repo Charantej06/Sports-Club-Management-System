@@ -222,7 +222,7 @@ export async function operationsData(
     };
   }
   if (area === "kitchen") {
-    roles(actor, ["OWNER", "KITCHEN"]);
+    roles(actor, ["OWNER", "KITCHEN", "CASHIER"]);
     return db.kitchenTicket.findMany({
       where: { order: { status: "OPEN" } },
       include: {

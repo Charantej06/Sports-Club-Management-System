@@ -91,7 +91,7 @@ export function StaffDesk({
           { id: "pos", name: "Waiter / POS", icon: ClipboardList },
         ]
       : []),
-    ...(["OWNER", "KITCHEN"].includes(role)
+    ...(["OWNER", "KITCHEN", "CASHIER"].includes(role)
       ? [{ id: "kitchen", name: "Kitchen queue", icon: ClipboardList }]
       : []),
     ...(lookupAllowed

@@ -91,7 +91,7 @@ export const GET = route(async (request) => {
       },
     );
   }
-  if (["OWNER", "KITCHEN"].includes(user.role)) {
+  if (["OWNER", "KITCHEN", "CASHIER"].includes(user.role)) {
     const waiting = await db.kitchenTicket.count({
       where: {
         preparation: { in: ["INCOMING", "ACCEPTED", "COOKING"] },
