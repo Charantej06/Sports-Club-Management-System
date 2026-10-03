@@ -132,6 +132,8 @@ model ClubSettings {
   reminderHour       Int @default(9)
   payrollTaxBps      Int @default(0)
   payrollTaxLabel    String @default("Configured withholding")
+  // Minutes between bookable start times (30 or 60). Sessions always last one hour.
+  slotMinutes        Int    @default(30)
   address            String @default("12 Sports Avenue, Bengaluru")
   contactEmail       String @default("hello@champions.local")
   contactPhone       String @default("+91 80 4567 8900")

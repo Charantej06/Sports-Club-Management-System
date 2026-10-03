@@ -30,7 +30,7 @@ type Availability = {
   hourlyPaise: number;
   maintenance: boolean;
   maintenanceReason: string | null;
-  slots: { hour: number; available: boolean; elapsed: boolean; reason: string | null }[];
+  slots: { hour: number; minute: number; available: boolean; elapsed: boolean; reason: string | null }[];
 }[];
 
 type Hold = {
@@ -56,8 +56,8 @@ type Booked = {
 
 type TimeFilter = "all" | "morning" | "afternoon" | "evening";
 
-const displayHour = (hour: number) =>
-  `${hour === 12 ? 12 : hour % 12}:00 ${hour >= 12 ? "PM" : "AM"}`;
+const displayTime = (hour: number, minute = 0) =>
+  `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
 
 export function CourtsView({
   data,
@@ -172,10 +172,10 @@ export function CourtsView({
     }
   };
 
-  const reserve = (courtId: string, courtName: string, hour: number) =>
-    guarded(`${courtId}-${hour}`, async () => {
-      const held = (await action.mutateAsync({ area: "booking", input: { courtId, day, hour, trial } })) as unknown as Hold;
-      await checkout("booking", held, undefined, courtName, held.startsAt ?? `${day}T${String(hour).padStart(2, "0")}:00:00+05:30`);
+  const reserve = (courtId: string, courtName: string, hour: number, minute: number) =>
+    guarded(`${courtId}-${hour}-${minute}`, async () => {
+      const held = (await action.mutateAsync({ area: "booking", input: { courtId, day, hour, minute, trial } })) as unknown as Hold;
+      await checkout("booking", held, undefined, courtName, held.startsAt ?? `${day}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00+05:30`);
     });
 
   const joinSocial = (e: NonNullable<typeof social.data>[number]) =>
@@ -449,7 +449,7 @@ export function CourtsView({
                   {/* Clean metadata pills (No emojis, no 12-hour cancellation) */}
                   <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
                     <span className="rounded-md border border-neutral-200 bg-white px-2.5 py-1 font-medium text-neutral-700">
-                      60-Minute Sessions
+                      60-minute sessions · a new slot every {data.settings.slotMinutes} min
                     </span>
                     <span className="rounded-md border border-neutral-200 bg-white px-2.5 py-1 font-medium text-neutral-700">
                       {data.settings.dailySessionLimit} sessions daily quota
@@ -700,19 +700,19 @@ export function CourtsView({
                           if (isAvailable) {
                             return (
                               <button
-                                key={s.hour}
+                                key={`${s.hour}-${s.minute}`}
                                 type="button"
                                 disabled={!!busy || modes.isPending}
-                                onClick={() => reserve(c.id, c.name, s.hour)}
-                                aria-busy={busy === `${c.id}-${s.hour}`}
-                                aria-label={`${c.name}, ${day}, ${displayHour(s.hour)}, book now`}
+                                onClick={() => reserve(c.id, c.name, s.hour, s.minute)}
+                                aria-busy={busy === `${c.id}-${s.hour}-${s.minute}`}
+                                aria-label={`${c.name}, ${day}, ${displayTime(s.hour, s.minute)}, book now`}
                                 className="group relative flex flex-col items-center justify-center rounded-xl border border-neutral-300 bg-white p-3 text-center transition-all hover:border-orange-500 hover:bg-orange-50/40 hover:shadow-xs active:scale-[0.98]"
                               >
                                 <span className="text-sm font-bold text-neutral-900 group-hover:text-orange-950">
-                                  {displayHour(s.hour)}
+                                  {displayTime(s.hour, s.minute)}
                                 </span>
                                 <span className="mt-1 inline-flex items-center rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-800 group-hover:bg-[#ff6b2c] group-hover:text-white">
-                                  {busy === `${c.id}-${s.hour}` ? "Booking…" : "Book"}
+                                  {busy === `${c.id}-${s.hour}-${s.minute}` ? "Booking…" : "Book"}
                                 </span>
                               </button>
                             );
@@ -721,20 +721,20 @@ export function CourtsView({
                           if (isWaitlist) {
                             return (
                               <button
-                                key={s.hour}
+                                key={`${s.hour}-${s.minute}`}
                                 type="button"
                                 disabled={!!busy || action.isPending}
                                 onClick={() =>
                                   action.mutate({
                                     area: "waiting",
-                                    input: { courtId: c.id, day, hour: s.hour },
+                                    input: { courtId: c.id, day, hour: s.hour, minute: s.minute },
                                   })
                                 }
-                                aria-label={`${c.name}, ${day}, ${displayHour(s.hour)}, full, click to join waitlist`}
+                                aria-label={`${c.name}, ${day}, ${displayTime(s.hour, s.minute)}, full, click to join waitlist`}
                                 className="group relative flex flex-col items-center justify-center rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-3 text-center transition-all hover:bg-amber-100/60 active:scale-[0.98]"
                               >
                                 <span className="text-sm font-semibold text-neutral-800">
-                                  {displayHour(s.hour)}
+                                  {displayTime(s.hour, s.minute)}
                                 </span>
                                 <span className="mt-1 inline-flex items-center rounded bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
                                   Waitlist
@@ -746,12 +746,12 @@ export function CourtsView({
                           // Elapsed or closed
                           return (
                             <div
-                              key={s.hour}
+                              key={`${s.hour}-${s.minute}`}
                               aria-disabled="true"
                               className="flex flex-col items-center justify-center rounded-xl border border-neutral-200 bg-neutral-100/70 p-3 text-center opacity-60"
                             >
                               <span className="text-sm font-medium text-neutral-400 line-through">
-                                {displayHour(s.hour)}
+                                {displayTime(s.hour, s.minute)}
                               </span>
                               <span className="mt-1 text-[10px] uppercase tracking-wider text-neutral-500 font-medium">
                                 {isElapsed ? "Started" : isClosed ? "Closed" : "Booked"}

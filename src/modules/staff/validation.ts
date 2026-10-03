@@ -3,6 +3,7 @@ export const planSchema = z.object({ id: z.enum(["gold", "silver", "junior"]), p
 export const settingsSchema = z.object({
   openHour: z.number().int().min(0).max(22), closeHour: z.number().int().min(1).max(24),
   bookingWindowDays: z.number().int().min(1).max(90), dailySessionLimit: z.number().int().min(1).max(10),
+  slotMinutes: z.union([z.literal(30), z.literal(60)]).optional(),
   holdMinutes: z.number().int().min(1).max(30), cancellationHours: z.number().int().min(0).max(72),
   waitOfferMinutes: z.number().int().min(5).max(240), socialCapacity: z.number().int().min(2).max(50),
   tabLimitPaise: z.number().int().min(0).max(100000000),

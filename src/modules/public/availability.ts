@@ -17,12 +17,14 @@ export async function availability(sport: string, day: string) {
     const maintenance = court.status === "MAINTENANCE" || facility.status === "MAINTENANCE";
     const maintenanceReason = (court.status === "MAINTENANCE" ? court.statusNote : facility.statusNote) || "Under maintenance";
     return { id: court.id, name: court.name, indoor: court.indoor, hourlyPaise: court.hourlyPaise, maintenance, maintenanceReason: maintenance ? maintenanceReason : null,
-    slots: Array.from({ length: settings.closeHour - settings.openHour }, (_,n) => {
-      const hour = settings.openHour + n;
-      const startsAt = new Date(start.getTime() + hour * 3600000);
+    // A one-hour session may start every slotMinutes (30 by default) and must finish by closing time.
+    slots: Array.from({ length: Math.max(0, Math.floor(((settings.closeHour - settings.openHour) * 60 - 60) / settings.slotMinutes) + 1) }, (_,n) => {
+      const startMinutes = settings.openHour * 60 + n * settings.slotMinutes;
+      const hour = Math.floor(startMinutes / 60), minute = startMinutes % 60;
+      const startsAt = new Date(start.getTime() + startMinutes * 60000);
       const endsAt = new Date(startsAt.getTime() + 3600000);
       const closure = court.closures.find(r => r.startsAt < endsAt && r.endsAt > startsAt);
-      return { hour, elapsed: startsAt <= now, reason: maintenance ? maintenanceReason : closure?.reason || null, available: !maintenance && startsAt > now && ![...court.reservations, ...court.closures].some(r => r.startsAt < endsAt && r.endsAt > startsAt) };
+      return { hour, minute, elapsed: startsAt <= now, reason: maintenance ? maintenanceReason : closure?.reason || null, available: !maintenance && startsAt > now && ![...court.reservations, ...court.closures].some(r => r.startsAt < endsAt && r.endsAt > startsAt) };
     }),
   }; });
 }

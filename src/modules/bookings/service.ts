@@ -11,6 +11,8 @@ import {
   subject,
   clubDay,
   slot,
+  clubTime,
+  minuteSchema,
   weekRange,
   methodSchema,
   reasonSchema,
@@ -31,6 +33,7 @@ export const bookingSchema = z
     courtId: z.string().min(1).max(80),
     day: z.iso.date(),
     hour: z.number().int().min(0).max(23),
+    minute: minuteSchema,
     trial: z.boolean().default(false),
     userId: z.string().optional(),
     guestName: z.string().trim().min(2).max(80).optional(),
@@ -45,18 +48,25 @@ export const bookingActionSchema = z
     override: z.boolean().default(false),
   })
   .strict();
-export type BookingInput = z.infer<typeof bookingSchema>;
+export type BookingInput = z.input<typeof bookingSchema>;
 async function validateSlot(
   tx: Tx,
   courtId: string,
   day: string,
   hour: number,
+  minute: number,
   now: Date,
 ) {
   const settings = await tx.clubSettings.findUniqueOrThrow({
     where: { id: "club" },
   });
-  const startsAt = slot(day, hour),
+  assert(
+    minute % settings.slotMinutes === 0,
+    "SLOT_START",
+    `Sessions start every ${settings.slotMinutes} minutes. Choose one of the listed times.`,
+    422,
+  );
+  const startsAt = slot(day, hour, minute),
     endsAt = new Date(+startsAt + 3600000);
   assert(
     startsAt > now &&
@@ -71,9 +81,10 @@ async function validateSlot(
     422,
   );
   assert(
-    hour >= settings.openHour && hour < settings.closeHour,
+    hour * 60 + minute >= settings.openHour * 60 &&
+      hour * 60 + minute + 60 <= settings.closeHour * 60,
     "OPENING_HOURS",
-    "Choose an hourly session within club opening hours.",
+    "Choose a one-hour session within club opening hours.",
     422,
   );
   const court = await tx.court.findUnique({
@@ -270,6 +281,7 @@ async function createHold(
     input.courtId,
     input.day,
     input.hour,
+    input.minute ?? 0,
     now,
   );
   assert(
@@ -313,7 +325,7 @@ async function createHold(
     who.userId,
     startsAt,
     court.hourlyPaise,
-    input.trial,
+    input.trial ?? false,
     settings.trialDiscountBps,
   );
   const holdUntil = new Date(+now + settings.holdMinutes * 60000);
@@ -339,7 +351,7 @@ async function createHold(
     originId: reservation.id,
     lines: [
       {
-        description: `${court.name} · ${input.day} ${String(input.hour).padStart(2, "0")}:00 · ${input.trial ? "trial" : "one hour"}`,
+        description: `${court.name} · ${input.day} ${String(input.hour).padStart(2, "0")}:${String(input.minute ?? 0).padStart(2, "0")} · ${input.trial ? "trial" : "one hour"}`,
         ...priced(court.hourlyPaise, 1, price.snapshot.discountBps),
       },
     ],
@@ -532,6 +544,7 @@ export function createSocial(
       input.courtId,
       input.day,
       input.hour,
+      0,
       now,
     );
     assert(
@@ -943,13 +956,14 @@ export const waitSchema = z
     courtId: z.string(),
     day: z.iso.date(),
     hour: z.number().int().min(0).max(23),
+    minute: minuteSchema,
     eventId: z.string().optional(),
   })
   .strict();
 export function joinWaiting(
   actor: Actor,
   key: string,
-  input: z.infer<typeof waitSchema>,
+  input: z.input<typeof waitSchema>,
 ) {
   return operation(actor, key, "waiting.join", input, async (tx) => {
     const now = new Date();
@@ -959,6 +973,7 @@ export function joinWaiting(
       input.courtId,
       input.day,
       input.hour,
+      input.minute ?? 0,
       now,
     );
     if (input.eventId) {
@@ -1129,13 +1144,8 @@ export async function offerNext(
               {
                 courtId,
                 day: clubDay(startsAt),
-                hour: Number(
-                  new Intl.DateTimeFormat("en-GB", {
-                    hour: "numeric",
-                    hourCycle: "h23",
-                    timeZone: "Asia/Kolkata",
-                  }).format(startsAt),
-                ),
+                hour: clubTime(startsAt).hour,
+                minute: clubTime(startsAt).minute as 0 | 30,
                 trial: false,
               },
               now,
