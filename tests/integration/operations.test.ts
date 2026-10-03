@@ -273,9 +273,9 @@ after(async () => {
       ],
     },
   });
-  if (convertedId) {
+  {
     const messages = await db.mailMessage.findMany({
-      where: { to: prefix + "-lead@example.test" },
+      where: { to: { startsWith: prefix } },
     });
     await db.mailMessage.deleteMany({
       where: { id: { in: messages.map((m) => m.id) } },
