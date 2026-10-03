@@ -3,20 +3,24 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Calendar as CalendarIcon,
   Clock,
   AlertCircle,
   ArrowRight,
   Info,
+  CheckCircle2,
+  Wrench,
 } from "lucide-react";
 import type { publicData } from "@/modules/public/queries";
 import { money } from "@/lib/utils";
 import { api } from "@/lib/api-client";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-import { useAction, Feedback, CheckoutHold, type Json } from "./operations-ui";
+import { useAction, CheckoutHold, ReceiptLink, type Json } from "./operations-ui";
+import { usePaymentModes } from "./gateway-checkout";
 import type { socialList } from "@/modules/operations/queries";
 
 type Availability = {
@@ -24,6 +28,8 @@ type Availability = {
   name: string;
   indoor: boolean;
   hourlyPaise: number;
+  maintenance: boolean;
+  maintenanceReason: string | null;
   slots: { hour: number; available: boolean; elapsed: boolean; reason: string | null }[];
 }[];
 
@@ -37,6 +43,15 @@ type Hold = {
   court?: { name: string };
   title?: string;
   priceSnapshot: { plan: string };
+};
+
+type Booked = {
+  title: string;
+  startsAt: string;
+  totalPaise: number;
+  invoiceId?: string;
+  plan?: string;
+  simulated: boolean;
 };
 
 type TimeFilter = "all" | "morning" | "afternoon" | "evening";
@@ -73,14 +88,21 @@ export function CourtsView({
   } | null>(null);
 
   const action = useAction();
+  const router = useRouter();
+  const client = useQueryClient();
+  const modes = usePaymentModes();
+  const [booked, setBooked] = useState<Booked | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [bookError, setBookError] = useState<string | null>(null);
   const selected = data.sports.find((s) => s.id === sport) || data.sports[0];
+  const activeCourts = selected?.courts.filter((c) => c.status === "ACTIVE").length ?? 0;
 
   const availability = useQuery({
     queryKey: ["availability", sport, day],
     queryFn: () =>
       api<Availability>(`/api/public/availability?sport=${sport}&date=${day}`),
     refetchInterval: 5000,
-    enabled: !!day,
+    enabled: !!day && !!sport,
   });
 
   const social = useQuery({
@@ -92,24 +114,75 @@ export function CourtsView({
     refetchInterval: 5000,
   });
 
-  // Smooth scroll to hold when created
+  // Bring the payment step or the confirmation into view when it appears.
   useEffect(() => {
-    if (hold) {
-      const anchor = document.getElementById("active-checkout-hold");
-      if (anchor) {
-        anchor.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }
-  }, [hold]);
+    const anchor = document.getElementById(hold ? "active-checkout-hold" : "booking-confirmation");
+    if ((hold || booked) && anchor) anchor.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [hold, booked]);
 
-  const reserve = (courtId: string, hour: number) =>
-    action.mutate(
-      { area: "booking", input: { courtId, day, hour, trial } },
-      {
-        onSuccess: (d) =>
-          setHold({ area: "booking", hold: d as unknown as Hold }),
-      },
-    );
+  /**
+   * One-tap checkout. The server still holds the session first so two people cannot
+   * take the same slot, but the player never sees a separate "confirm" step:
+   * online payment opens straight away, and local/complimentary bookings finish immediately.
+   */
+  const checkout = async (
+    area: "booking" | "social",
+    held: Hold,
+    eventId: string | undefined,
+    title: string,
+    startsAt: string,
+  ) => {
+    const total = held.totalPaise ?? held.pricePaise ?? 0;
+    if (modes.data?.gateway && total > 0) {
+      setHold({ area, hold: held, eventId });
+      return;
+    }
+    const target = `/api/operations/${area}/${eventId || held.id}`;
+    const patch = (input: Record<string, unknown>) =>
+      api(target, {
+        method: "PATCH",
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({ ...input, ...(area === "social" ? { participantId: held.id } : {}) }),
+      });
+    try {
+      if (!modes.data?.local && total > 0)
+        throw new Error("Online payments are not configured. Please contact reception to book.");
+      await patch({ action: "confirm", method: "LOCAL" });
+      setBooked({ title, startsAt, totalPaise: total, invoiceId: held.invoiceId, plan: held.priceSnapshot?.plan, simulated: !!modes.data?.local && total > 0 });
+      router.refresh();
+      await client.invalidateQueries();
+    } catch (error) {
+      // Never leave a half-finished hold behind; it would block the slot until it expires.
+      await patch({ action: "cancel", reason: "Checkout could not be completed" }).catch(() => undefined);
+      throw error;
+    }
+  };
+
+  const guarded = async (key: string, work: () => Promise<void>) => {
+    setBusy(key);
+    setBookError(null);
+    setBooked(null);
+    setHold(null);
+    try {
+      await work();
+    } catch (error) {
+      setBookError(error instanceof Error ? error.message : "Unable to complete this booking.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const reserve = (courtId: string, courtName: string, hour: number) =>
+    guarded(`${courtId}-${hour}`, async () => {
+      const held = (await action.mutateAsync({ area: "booking", input: { courtId, day, hour, trial } })) as unknown as Hold;
+      await checkout("booking", held, undefined, courtName, held.startsAt ?? `${day}T${String(hour).padStart(2, "0")}:00:00+05:30`);
+    });
+
+  const joinSocial = (e: NonNullable<typeof social.data>[number]) =>
+    guarded(`social-${e.id}`, async () => {
+      const held = (await action.mutateAsync({ area: "social", id: e.id, input: { action: "join" } })) as unknown as Hold;
+      await checkout("social", held, e.id, e.title, e.startsAt);
+    });
 
   // Generate 7 upcoming day options starting today
   const dayOptions = useMemo(() => {
@@ -163,6 +236,14 @@ export function CourtsView({
     }
   }, [day, data.settings.timezone]);
 
+  if (!selected)
+    return (
+      <section className="booking-page min-h-[60vh] bg-white px-6 py-24 text-center text-neutral-900">
+        <h1 className="text-2xl font-bold">No courts are open for booking right now.</h1>
+        <p className="mt-3 text-sm text-neutral-600">Please check back soon or contact reception.</p>
+      </section>
+    );
+
   return (
     <section className="booking-page min-h-screen bg-white text-neutral-900">
       {/* Hero section with video BG and text in front kept EXACTLY as requested */}
@@ -207,9 +288,63 @@ export function CourtsView({
             </div>
           )}
 
-          {/* Action Feedback & Sign-In prompt */}
-          <Feedback action={action} />
-          {action.error?.message.toLowerCase().includes("sign in") && (
+          {/* Booking confirmation */}
+          {booked && (
+            <div
+              id="booking-confirmation"
+              role="status"
+              className="scroll-mt-24 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-950 shadow-xs md:p-8"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 size-7 shrink-0 text-emerald-700" aria-hidden="true" />
+                  <div>
+                    <h2 className="text-xl font-bold tracking-tight">You&apos;re booked.</h2>
+                    <p className="mt-1 text-sm">
+                      <strong>{booked.title}</strong> ·{" "}
+                      {new Date(booked.startsAt).toLocaleString("en-IN", {
+                        timeZone: "Asia/Kolkata",
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}{" "}
+                      · {booked.totalPaise ? money(booked.totalPaise) : "Complimentary"}
+                      {booked.plan ? ` · ${booked.plan}` : ""}
+                    </p>
+                    {booked.simulated && (
+                      <p className="mt-1 text-xs text-emerald-800">Local test mode: no money was collected.</p>
+                    )}
+                    <div className="mt-2">
+                      <ReceiptLink id={booked.invoiceId} />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button asChild size="sm" className="bg-neutral-950 text-white hover:bg-neutral-800">
+                    <Link href="/account">View my bookings</Link>
+                  </Button>
+                  <Button size="sm" variant="outline" className="border-emerald-300 bg-white text-emerald-900 hover:bg-emerald-100" onClick={() => setBooked(null)}>
+                    Book another
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Errors & sign-in prompt */}
+          {(bookError || action.error) && (
+            <p className="field-error my-3" role="alert">
+              {bookError || action.error?.message}
+            </p>
+          )}
+          {action.isSuccess && action.variables?.area === "waiting" && !busy && (
+            <p role="status" className="my-3 text-sm font-medium text-emerald-700">
+              You&apos;re on the waiting list. We&apos;ll offer you the slot if it opens up; check My Account.
+            </p>
+          )}
+          {(bookError || action.error?.message || "").toLowerCase().includes("sign in") && (
             <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-orange-200 bg-orange-50 p-5 text-orange-950">
               <div className="flex items-center gap-3">
                 <AlertCircle className="size-5 shrink-0 text-orange-600" />
@@ -267,12 +402,23 @@ export function CourtsView({
                           : "bg-neutral-100 text-neutral-600"
                       }`}
                     >
-                      {s.courts.length}
+                      {s.courts.filter((c) => c.status === "ACTIVE").length}
                     </span>
                   </button>
                 );
               })}
             </nav>
+
+            {selected.status === "MAINTENANCE" && (
+              <div role="status" className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+                <Wrench className="mt-0.5 size-4 shrink-0 text-amber-700" aria-hidden="true" />
+                <p>
+                  <strong>{selected.name} is under maintenance.</strong>{" "}
+                  {selected.statusNote ? `${selected.statusNote}. ` : ""}
+                  Bookings reopen when the work is finished. Please choose another sport in the meantime.
+                </p>
+              </div>
+            )}
 
             {/* Selected Sport Overview */}
             <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-5 md:p-6">
@@ -286,7 +432,7 @@ export function CourtsView({
                     className="object-cover object-center"
                   />
                   <div className="absolute bottom-2 left-2 rounded bg-black/75 px-2 py-0.5 text-[11px] font-semibold text-white">
-                    {selected.courts.length} active courts
+                    {activeCourts} {activeCourts === 1 ? "court" : "courts"} open
                   </div>
                 </div>
 
@@ -523,7 +669,12 @@ export function CourtsView({
                         </div>
 
                         <div>
-                          {openSlots > 0 ? (
+                          {c.maintenance ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
+                              <Wrench className="size-3.5" aria-hidden="true" />
+                              Under maintenance
+                            </span>
+                          ) : openSlots > 0 ? (
                             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
                               <span className="size-1.5 rounded-full bg-emerald-600" />
                               {openSlots} {openSlots === 1 ? "slot" : "slots"} available
@@ -551,16 +702,17 @@ export function CourtsView({
                               <button
                                 key={s.hour}
                                 type="button"
-                                disabled={action.isPending}
-                                onClick={() => reserve(c.id, s.hour)}
-                                aria-label={`${c.name}, ${day}, ${displayHour(s.hour)}, available to book`}
+                                disabled={!!busy || modes.isPending}
+                                onClick={() => reserve(c.id, c.name, s.hour)}
+                                aria-busy={busy === `${c.id}-${s.hour}`}
+                                aria-label={`${c.name}, ${day}, ${displayHour(s.hour)}, book now`}
                                 className="group relative flex flex-col items-center justify-center rounded-xl border border-neutral-300 bg-white p-3 text-center transition-all hover:border-orange-500 hover:bg-orange-50/40 hover:shadow-xs active:scale-[0.98]"
                               >
                                 <span className="text-sm font-bold text-neutral-900 group-hover:text-orange-950">
                                   {displayHour(s.hour)}
                                 </span>
                                 <span className="mt-1 inline-flex items-center rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-800 group-hover:bg-[#ff6b2c] group-hover:text-white">
-                                  Book
+                                  {busy === `${c.id}-${s.hour}` ? "Booking…" : "Book"}
                                 </span>
                               </button>
                             );
@@ -571,7 +723,7 @@ export function CourtsView({
                               <button
                                 key={s.hour}
                                 type="button"
-                                disabled={action.isPending}
+                                disabled={!!busy || action.isPending}
                                 onClick={() =>
                                   action.mutate({
                                     area: "waiting",
@@ -632,7 +784,7 @@ export function CourtsView({
 
             <div className="flex items-center justify-between text-xs text-neutral-500 pt-2 font-medium">
               <p>Availability updates automatically every 5 seconds · Asia/Kolkata timezone</p>
-              <p>Confirmed checkout required to secure held slots</p>
+              <p>{modes.data?.gateway ? "Pick a time to go straight to secure payment" : "Pick a time and you're booked instantly"}</p>
             </div>
           </section>
 
@@ -738,20 +890,10 @@ export function CourtsView({
                             ? "bg-[#ff6b2c] text-white hover:bg-orange-600 shadow-xs"
                             : "border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
                         }`}
-                        disabled={action.isPending}
+                        disabled={!!busy || action.isPending || modes.isPending}
                         onClick={() =>
                           e.remaining
-                            ? action.mutate(
-                                { area: "social", id: e.id, input: { action: "join" } },
-                                {
-                                  onSuccess: (d) =>
-                                    setHold({
-                                      area: "social",
-                                      eventId: e.id,
-                                      hold: d as unknown as Hold,
-                                    }),
-                                },
-                              )
+                            ? joinSocial(e)
                             : action.mutate({
                                 area: "waiting",
                                 input: {
@@ -771,7 +913,7 @@ export function CourtsView({
                               })
                         }
                       >
-                        {e.remaining ? "Reserve Place" : "Join Waiting List"}
+                        {busy === `social-${e.id}` ? "Booking…" : e.remaining ? "Reserve Place" : "Join Waiting List"}
                       </Button>
                     </div>
                   </article>

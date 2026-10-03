@@ -220,7 +220,7 @@ export async function operationalReport(
   const [settings, courts, reservations, closures, lowStock, expiring, tabs] =
     await Promise.all([
       db.clubSettings.findUniqueOrThrow({ where: { id: "club" } }),
-      db.court.findMany({ where: { active: true } }),
+      db.court.findMany({ where: { status: { not: "INACTIVE" } } }),
       db.reservation.findMany({
         where: { status: "CONFIRMED", startsAt: { gte: start, lt: end } },
         select: {

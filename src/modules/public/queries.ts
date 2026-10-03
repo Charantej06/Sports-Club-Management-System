@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 export async function publicData() {
   const [sports, plans, products, menu, settings] = await Promise.all([
-    db.sport.findMany({ orderBy: { sortOrder: "asc" }, include: { courts: { where: { active: true }, select: { id: true, name: true, hourlyPaise: true, indoor: true } } } }),
+    db.sport.findMany({ where: { status: { not: "INACTIVE" } }, orderBy: { sortOrder: "asc" }, include: { courts: { where: { status: { not: "INACTIVE" } }, orderBy: { name: "asc" }, select: { id: true, name: true, hourlyPaise: true, indoor: true, status: true, statusNote: true } } } }),
     db.membershipPlan.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     db.product.findMany({ where: { active: true }, include: { variants: { select: { id: true, label: true, pricePaise: true, stock: true, reserved: true } } }, orderBy: { name: "asc" } }),
     db.menuItem.findMany({ orderBy: [{ category: "asc" }, { name: "asc" }] }),

@@ -78,7 +78,7 @@ export function ReceiptLink({ id }: { id?: string | null }) {
       className="text-xs text-orange-400 hover:text-orange-300 underline font-medium inline-flex items-center gap-1 transition-colors"
       href={`/account/receipts/${id}`}
     >
-      Draft invoice & receipt details →
+      View invoice & receipt →
     </Link>
   ) : null;
 }

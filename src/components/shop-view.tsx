@@ -58,7 +58,7 @@ export function ShopView({ products }: { products: Products }) {
 
           {/* Clean, high-contrast filter buttons without ugly orange */}
           <nav className="mb-7 mt-12 flex flex-wrap gap-3" aria-label="Filter products by sport">
-            {["all", "tennis", "padel", "badminton", "cricket"].map((s) => (
+            {["all", ...Array.from(new Set(products.map((p) => p.sport).filter((s) => s !== "all")))].map((s) => (
               <Button
                 key={s}
                 variant={s === sport ? "secondary" : "outline"}

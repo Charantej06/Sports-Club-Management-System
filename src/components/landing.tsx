@@ -16,7 +16,7 @@ type Data = Awaited<ReturnType<typeof publicData>>;
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 const stories = [
   { title: "The post-match plans are part of the game.", text: "A quick rally becomes a long conversation. Finish your session, find your table, and let the good company do the rest.", image: "/images/clubhouse.jpg" },
-  { title: "Find a new game. Keep the same feeling.", text: "From a first serve to your first six, there is always another way to play. Four sports, one welcoming club.", image: "/images/cricket.jpg" },
+  { title: "Find a new game. Keep the same feeling.", text: "From a first serve to your first six, there is always another way to play. Every sport, one welcoming club.", image: "/images/cricket.jpg" },
   { title: "Make room for your everyday ritual.", text: "Before work, after school, or just because. A place to put down your phone, pick up your racket, and feel like yourself.", image: "/images/tennis.jpg" },
 ];
 function CourtSketch() {
@@ -94,7 +94,7 @@ export function Landing({ data }: { data: Data }) {
           </Link>
         </div>
         <div className="grid gap-6 md:grid-cols-3">{data.plans.map(plan => <PlanCard plan={plan} key={plan.id}/>)}</div>
-        <p className="mt-8 text-center text-xs text-neutral-400">One club. Four sports. Membership benefits follow you, from court to clubhouse.</p>
+        <p className="mt-8 text-center text-xs text-neutral-400">One club. Every sport. Membership benefits follow you, from court to clubhouse.</p>
       </div>
     </section>
     <section className="chapter site-width gear-section grid gap-14 lg:grid-cols-[.8fr_1.2fr]"><div><div className="gear-title max-w-sm"><p className="eyebrow mb-5 text-orange-400">The Champions Shop</p><h2 className="section-title">Good gear.<br/>Great games.</h2><p className="soft-text mt-6 text-sm">The things that make a difference. Explore our edit of court essentials, performance kit and everyday favourites.</p><Button asChild variant="outline" className="mt-7"><Link href="/shop">Explore the shop<ArrowUpRight size={16}/></Link></Button></div></div><div className="grid grid-cols-2 gap-x-5 gap-y-9">{featured.map(product => <Link href={`/shop/${product.id}`} className="group" key={product.id}><div className="relative aspect-square overflow-hidden rounded bg-[#e7e5de]"><Image src={product.image} alt={product.name} fill sizes="(max-width:640px) 45vw, 30vw" className="object-contain p-7 transition-transform duration-700 group-hover:scale-105"/></div><p className="mt-4 text-[10px] uppercase tracking-widest text-neutral-500">{product.sport === "all" ? "Club essentials" : product.sport}</p><h3 className="mt-2 text-sm">{product.name}</h3><p className="mt-2 text-sm text-neutral-400">{money(product.variants[0]?.pricePaise || 0)}</p></Link>)}</div></section>
@@ -143,7 +143,7 @@ export function Landing({ data }: { data: Data }) {
               </div>
             </div>
             <div>
-              <EnquiryForm />
+              <EnquiryForm sports={data.sports} />
             </div>
           </div>
         </div>

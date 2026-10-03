@@ -76,8 +76,21 @@ async function validateSlot(
     "Choose an hourly session within club opening hours.",
     422,
   );
-  const court = await tx.court.findUnique({ where: { id: courtId } });
-  assert(court?.active, "COURT_UNAVAILABLE", "Court is unavailable.", 404);
+  const court = await tx.court.findUnique({
+    where: { id: courtId },
+    include: { sport: { select: { name: true, status: true } } },
+  });
+  assert(
+    court && court.status !== "INACTIVE" && court.sport.status !== "INACTIVE",
+    "COURT_UNAVAILABLE",
+    "Court is unavailable.",
+    404,
+  );
+  assert(
+    court.status === "ACTIVE" && court.sport.status === "ACTIVE",
+    "COURT_MAINTENANCE",
+    `${court.status === "MAINTENANCE" ? court.name : court.sport.name} is under maintenance and cannot be booked right now. Choose an alternative court or sport.`,
+  );
   assert(
     !(await tx.courtClosure.count({
       where: {
