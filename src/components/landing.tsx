@@ -5,12 +5,13 @@ import { useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Sun, Users, Coffee } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Sun, Users, Coffee } from "lucide-react";
 import type { publicData } from "@/modules/public/queries";
 import { money } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { PlanCard } from "./plan-card";
 import { EnquiryForm } from "./enquiry-form";
+import { LandingHero } from "./landing-hero";
 type Data = Awaited<ReturnType<typeof publicData>>;
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 const stories = [
@@ -20,7 +21,6 @@ const stories = [
 ];
 export function Landing({ data }: { data: Data }) {
   const root = useRef<HTMLDivElement>(null);
-  const [selected, setSelected] = useState("tennis");
   const [story, setStory] = useState(0);
   useGSAP(() => {
     const media = gsap.matchMedia();
@@ -35,10 +35,7 @@ export function Landing({ data }: { data: Data }) {
   }, { scope: root });
   const featured = data.products.filter(p => p.featured).slice(0, 4);
   return <div ref={root}>
-    <section className="site-width pb-9 pt-14 md:pt-20"><div className="mb-12 flex flex-col justify-between gap-8 lg:flex-row lg:items-end"><div className="max-w-6xl"><p className="eyebrow mb-6 text-orange-400">A home for every kind of player</p><h1 className="display-title">Your game.<br/><span className="text-neutral-500">Your people.</span></h1></div><div className="max-w-sm lg:pb-2"><p className="soft-text text-[15px]">Four sports. A whole lot of possibility.<br/>Come for the game. Stay for everything else.</p><div className="mt-7 flex flex-wrap gap-3"><Button asChild><Link href="/book">Find your court<ArrowUpRight size={17}/></Link></Button><Button asChild variant="outline"><Link href="/memberships">Join the club</Link></Button></div></div></div>
-    <div className="sport-panels" aria-label="Explore our four sports">{data.sports.map((sport, index) => <article key={sport.id} className={`sport-panel ${selected === sport.id ? "selected" : ""}`}>
-      <Image src={sport.image} alt={`${sport.name} at Champions Club`} fill sizes="(max-width: 640px) 100vw, 45vw" priority={index < 2}/><button className="sport-selector" onClick={() => setSelected(sport.id)} aria-expanded={selected === sport.id} aria-controls={`details-${sport.id}`} aria-label={`Explore ${sport.name}`}/><div className="sport-content"><div className="mb-3 flex items-center justify-between"><span className="text-xs text-white/65">{sport.id === "cricket" ? "Practice nets" : sport.id === "badminton" ? "Indoor courts" : sport.id === "padel" ? "Panoramic courts" : "Championship courts"}</span><ArrowUpRight size={20}/></div><h3 className="text-3xl font-medium tracking-tight md:text-4xl">{sport.name}</h3><div className="sport-details" id={`details-${sport.id}`} inert={selected !== sport.id}><p className="mb-4 mt-4 max-w-xs text-xs leading-relaxed text-white/75">{sport.description}</p><Link href={`/book?sport=${sport.id}`} className="inline-flex items-center gap-3 border-b border-white/70 pb-1 text-sm font-semibold">Explore courts<ArrowRight size={15}/></Link></div></div>
-    </article>)}</div><div className="mt-6 flex justify-between text-xs text-neutral-500"><span>Pick your sport. Find your stride.</span><a href="#experience" className="flex items-center gap-2">More than a game<ArrowDown size={14}/></a></div></section>
+    <LandingHero sports={data.sports}/>
     <section id="experience" className="chapter site-width"><div className="mb-12 flex flex-col justify-between gap-6 md:flex-row md:items-end"><h2 className="section-title max-w-3xl">Made for play.<br/>Built for <span className="inline-block h-10 w-24 overflow-hidden rounded-full align-middle md:h-13 md:w-32"><Image src="/images/padel-court.jpg" alt="" width={150} height={70} className="h-full w-full object-cover"/></span> belonging.</h2><p className="soft-text max-w-sm text-sm">Every court, every corner, every little detail.<br/>We&apos;ve made space for the way you like to spend your day.</p></div>
       <div className="facility-grid grid-flow-dense"><Link href="/book" className="image-card scale-image"><Image src="/images/tennis.jpg" alt="Sunlit tennis courts" fill sizes="(max-width:640px) 100vw, 65vw"/><div className="caption"><span className="eyebrow text-white/65">Room to raise your game</span><h3 className="mt-3 text-3xl">Your next great session.</h3><p className="mt-3 max-w-sm text-sm text-white/70">Premium surfaces. Thoughtful lighting.<br/>A little less distraction. A little more play.</p></div></Link><div className="rounded bg-[#191919] p-7"><Sun className="text-orange-400" size={28}/><h3 className="mt-5 text-xl">Play on your time.</h3><p className="mt-3 text-sm text-neutral-400">Early riser or under-the-lights player?<br/>{data.settings.openHour}:00–{data.settings.closeHour}:00, every day.</p></div><div className="rounded bg-[#eeeae3] p-7 text-[#1a1a1a]"><Users className="text-[#b84613]" size={28}/><h3 className="mt-5 text-xl">Good company, included.</h3><p className="mt-3 text-sm text-neutral-600">Shared courts, social Fridays, and a community that welcomes your first game.</p></div></div>
     </section>

@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useSyncExternalStore, useState } from "react";
+import { ShoppingCart } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { publicData } from "@/modules/public/queries";
@@ -40,10 +41,12 @@ export function CartLink() {
   );
   return (
     <Link
-      className="text-xs text-orange-400 whitespace-nowrap"
+      className="header-cart"
       href="/shop/cart"
+      aria-label={`Shopping cart, ${count} ${count === 1 ? "item" : "items"}`}
     >
-      Cart ({count})
+      <ShoppingCart size={20} strokeWidth={1.8} aria-hidden="true" />
+      <span aria-hidden="true">{count}</span>
     </Link>
   );
 }
