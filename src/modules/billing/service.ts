@@ -1,6 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma, Department } from "@/generated/prisma/client";
-import { assert, audit, type Actor, type Tx } from "@/modules/operations/core";
+import {
+  assert,
+  audit,
+  cashLock,
+  type Actor,
+  type Tx,
+} from "@/modules/operations/core";
+import { verifiedPayment } from "./gateway-context";
 export type ChargeLine = {
   description: string;
   quantity: number;
@@ -8,7 +15,7 @@ export type ChargeLine = {
   discountPaise: number;
   totalPaise: number;
 };
-export type PaymentMethod = "LOCAL" | "CASH" | "CARD" | "UPI";
+export type PaymentMethod = "LOCAL" | "CASH" | "CARD" | "UPI" | "GATEWAY";
 export async function issueInvoice(
   tx: Tx,
   input: {
@@ -88,7 +95,18 @@ export async function payInvoice(
     "Payment must be positive and cannot exceed the outstanding balance.",
     422,
   );
-  if (method === "LOCAL")
+  const verified = verifiedPayment.getStore();
+  if (method === "GATEWAY") {
+    assert(
+      verified &&
+        verified.userId === actor.id &&
+        verified.amountPaise === amountPaise &&
+        (!verified.invoiceId || verified.invoiceId === invoiceId),
+      "GATEWAY_UNVERIFIED",
+      "A server-verified captured payment is required.",
+      403,
+    );
+  } else if (method === "LOCAL")
     assert(
       process.env.PAYMENT_MODE === "local",
       "PAYMENT_UNCONFIGURED",
@@ -102,14 +120,25 @@ export async function payInvoice(
       "Only authorized staff can record payments.",
       403,
     );
-  const source = method === "LOCAL" ? "LOCAL_SIMULATED" : "MANUAL_RECORDED";
+  const source =
+    method === "GATEWAY"
+      ? "GATEWAY_VERIFIED"
+      : method === "LOCAL"
+        ? "LOCAL_SIMULATED"
+        : "MANUAL_RECORDED";
+  const cashShift = method === "CASH" ? await cashLock(tx, actor.id) : null;
   const payment = await tx.payment.create({
     data: {
       userId: b.invoice.userId,
       amountPaise,
       method,
       source,
-      reference: (method === "LOCAL" ? "local:" : "manual:") + randomUUID(),
+      actorId: actor.id,
+      cashShiftId: cashShift?.id,
+      reference:
+        method === "GATEWAY"
+          ? verified!.reference
+          : (method === "LOCAL" ? "local:" : "manual:") + randomUUID(),
     },
   });
   await tx.paymentAllocation.create({
@@ -163,6 +192,7 @@ export async function creditInvoice(
         method: local ? "LOCAL" : payments[0]?.payment.method || "CASH",
         source: local ? "LOCAL_SIMULATED" : "MANUAL_RECORDED",
         status: local ? "RECORDED" : "PENDING",
+        recordedAt: local ? new Date() : null,
         actorId: actor.id,
         reference: "refund:" + credit.id,
       },
