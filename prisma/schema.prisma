@@ -1,0 +1,511 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  MEMBER
+  RECEPTION
+  CASHIER
+  KITCHEN
+  OWNER
+}
+enum MembershipStatus {
+  ACTIVE
+  SUPERSEDED
+}
+enum Department {
+  MEMBERSHIP
+  COURT
+  SHOP
+  CLUBHOUSE
+}
+enum ReservationStatus {
+  HOLD
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+}
+enum JobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id            String   @id
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  role          Role     @default(MEMBER)
+  championsId   String   @unique
+  phone         String?
+  dateOfBirth   DateTime? @db.Date
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  memberships   Membership[]
+  card          MemberCard?
+  invoices      Invoice[]
+  payments      Payment[]
+  checkouts     Checkout[]
+  reservations  Reservation[]
+  participation SocialParticipant[]
+  waitlist      WaitlistEntry[]
+  orders        ShopOrder[]
+}
+
+model Session {
+  id        String   @id
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([expiresAt])
+}
+model Account {
+  id                    String   @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([identifier])
+}
+model RateLimit {
+  id          String @id @default(cuid())
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+}
+
+model ClubSettings {
+  id                 String @id @default("club")
+  timezone           String @default("Asia/Kolkata")
+  openHour           Int    @default(6)
+  closeHour          Int    @default(23)
+  bookingWindowDays  Int    @default(14)
+  dailySessionLimit  Int    @default(2)
+  holdMinutes        Int    @default(5)
+  cancellationHours Int    @default(12)
+  waitOfferMinutes   Int    @default(30)
+  socialCapacity     Int    @default(12)
+  tabLimitPaise      Int    @default(500000)
+  reminderDays       Int[]  @default([7, 1, 0])
+  address            String @default("12 Sports Avenue, Bengaluru")
+  contactEmail       String @default("hello@champions.local")
+  contactPhone       String @default("+91 80 4567 8900")
+  updatedAt          DateTime @updatedAt
+}
+model MembershipPlan {
+  id               String @id
+  name             String @unique
+  description      String
+  pricePaise       Int
+  durationDays     Int    @default(90)
+  courtDiscountBps Int    @default(0)
+  shopDiscountBps  Int    @default(0)
+  foodDiscountBps  Int    @default(0)
+  freeSessionsWeek Int    @default(0)
+  juniorOnly       Boolean @default(false)
+  active           Boolean @default(true)
+  sortOrder        Int @default(0)
+  memberships      Membership[]
+  updatedAt        DateTime @updatedAt
+}
+model Membership {
+  id           String @id @default(cuid())
+  userId       String
+  user         User @relation(fields: [userId], references: [id])
+  planId       String
+  plan         MembershipPlan @relation(fields: [planId], references: [id])
+  startsAt     DateTime @db.Timestamptz(3)
+  endsAt       DateTime @db.Timestamptz(3)
+  status       MembershipStatus @default(ACTIVE)
+  planSnapshot Json
+  pricePaise   Int
+  createdAt    DateTime @default(now())
+  @@index([userId, startsAt, endsAt])
+  @@index([endsAt, status])
+}
+model MemberCard {
+  id        String @id @default(cuid())
+  userId    String @unique
+  user      User @relation(fields: [userId], references: [id])
+  token     String @unique
+  issuedAt  DateTime @default(now())
+  revokedAt DateTime?
+}
+
+model Checkout {
+  id          String @id @default(cuid())
+  userId      String
+  user        User @relation(fields: [userId], references: [id])
+  key         String
+  fingerprint String
+  result      Json
+  createdAt   DateTime @default(now())
+  @@unique([userId, key])
+}
+model Invoice {
+  id            String @id @default(cuid())
+  number        String @unique
+  userId        String
+  user          User @relation(fields: [userId], references: [id])
+  department    Department
+  originId      String
+  subtotalPaise Int
+  discountPaise Int @default(0)
+  totalPaise    Int
+  currency      String @default("INR")
+  customerName  String
+  customerEmail String
+  issuedAt      DateTime @default(now())
+  lines         InvoiceLine[]
+  allocations   PaymentAllocation[]
+  credits       Credit[]
+  @@unique([department, originId])
+  @@index([userId, issuedAt])
+  @@index([department, issuedAt])
+}
+model InvoiceLine {
+  id            String @id @default(cuid())
+  invoiceId     String
+  invoice       Invoice @relation(fields: [invoiceId], references: [id])
+  description   String
+  quantity      Int
+  unitPaise     Int
+  discountPaise Int @default(0)
+  totalPaise    Int
+  @@index([invoiceId])
+}
+model Payment {
+  id          String @id @default(cuid())
+  userId      String
+  user        User @relation(fields: [userId], references: [id])
+  method      String
+  source      String
+  amountPaise Int
+  reference   String @unique
+  receivedAt  DateTime @default(now())
+  allocations PaymentAllocation[]
+  @@index([userId, receivedAt])
+}
+model PaymentAllocation {
+  id          String @id @default(cuid())
+  paymentId   String
+  payment     Payment @relation(fields: [paymentId], references: [id])
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id])
+  amountPaise Int
+  @@unique([paymentId, invoiceId])
+  @@index([invoiceId])
+}
+model Credit {
+  id          String @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id])
+  amountPaise Int
+  reason      String
+  actorId     String
+  createdAt   DateTime @default(now())
+  @@index([invoiceId])
+}
+model AuditLog {
+  id        String @id @default(cuid())
+  actorId   String
+  action    String
+  entityId  String
+  reason    String?
+  details   Json?
+  createdAt DateTime @default(now())
+  @@index([entityId, createdAt])
+  @@index([actorId, createdAt])
+}
+model Job {
+  id         String @id @default(cuid())
+  kind       String
+  dedupeKey  String @unique
+  payload    Json
+  status     JobStatus @default(PENDING)
+  runAt      DateTime @default(now())
+  attempts   Int @default(0)
+  lockedAt   DateTime?
+  lastError  String?
+  createdAt  DateTime @default(now())
+  @@index([status, runAt])
+}
+model MailMessage {
+  id        String @id @default(cuid())
+  jobId     String @unique
+  to        String
+  subject   String
+  body      String
+  mode      String
+  status    String @default("QUEUED")
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+}
+
+// Stage 2 foundation. The exclusion constraint lives in the SQL migration.
+model Sport {
+  id          String @id
+  name        String @unique
+  description String
+  image       String
+  sortOrder   Int
+  courts      Court[]
+}
+model Court {
+  id          String @id
+  name        String
+  sportId     String
+  sport       Sport @relation(fields: [sportId], references: [id])
+  hourlyPaise Int
+  indoor      Boolean @default(false)
+  active      Boolean @default(true)
+  reservations Reservation[]
+  closures    CourtClosure[]
+  @@index([sportId, active])
+}
+model Reservation {
+  id         String @id @default(cuid())
+  userId     String
+  user       User @relation(fields: [userId], references: [id])
+  courtId    String
+  court      Court @relation(fields: [courtId], references: [id])
+  startsAt   DateTime @db.Timestamptz(3)
+  endsAt     DateTime @db.Timestamptz(3)
+  clubDay    DateTime @db.Date
+  status     ReservationStatus
+  holdUntil  DateTime?
+  pricePaise Int
+  checkedInAt DateTime?
+  createdAt  DateTime @default(now())
+  socialEvent SocialEvent?
+  @@index([userId, clubDay, status])
+  @@index([courtId, startsAt])
+}
+model CourtClosure {
+  id       String @id @default(cuid())
+  courtId  String
+  court    Court @relation(fields: [courtId], references: [id])
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt   DateTime @db.Timestamptz(3)
+  reason   String
+  @@index([courtId, startsAt])
+}
+model SocialEvent {
+  id            String @id @default(cuid())
+  reservationId String @unique
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+  capacity      Int
+  participants  SocialParticipant[]
+}
+model SocialParticipant {
+  id      String @id @default(cuid())
+  eventId String
+  event   SocialEvent @relation(fields: [eventId], references: [id])
+  userId  String
+  user    User @relation(fields: [userId], references: [id])
+  @@unique([eventId, userId])
+}
+model WaitlistEntry {
+  id         String @id @default(cuid())
+  userId     String
+  user       User @relation(fields: [userId], references: [id])
+  courtId    String
+  startsAt   DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now())
+  offeredAt  DateTime?
+  offerUntil DateTime?
+  status     String @default("WAITING")
+  @@unique([userId, courtId, startsAt])
+  @@index([courtId, startsAt, createdAt])
+}
+model Product {
+  id          String @id
+  name        String
+  category    String
+  sport       String
+  description String
+  image       String
+  featured    Boolean @default(false)
+  active      Boolean @default(true)
+  variants    ProductVariant[]
+  @@index([sport, category, active])
+}
+model ProductVariant {
+  id          String @id
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  sku         String @unique
+  label       String
+  pricePaise  Int
+  stock       Int
+  reserved    Int @default(0)
+  movements   StockMovement[]
+  @@index([productId])
+}
+model StockMovement {
+  id        String @id @default(cuid())
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id])
+  delta     Int
+  reason    String
+  actorId   String
+  originId  String @unique
+  createdAt DateTime @default(now())
+  @@index([variantId, createdAt])
+}
+model ShopOrder {
+  id        String @id @default(cuid())
+  userId    String
+  user      User @relation(fields: [userId], references: [id])
+  status    String @default("PENDING")
+  delivery  Boolean @default(false)
+  address   Json?
+  lines     Json
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
+}
+
+// Stage 3 operational foundations; no POS or payroll mutations are exposed yet.
+model MenuItem {
+  id          String @id
+  name        String
+  description String
+  category    String
+  pricePaise  Int
+  vegetarian  Boolean @default(true)
+  available   Boolean @default(true)
+  image       String?
+}
+model DiningTable {
+  id       String @id
+  name     String @unique
+  capacity Int
+  orders   KitchenOrder[]
+}
+model KitchenOrder {
+  id          String @id @default(cuid())
+  tableId     String
+  table       DiningTable @relation(fields: [tableId], references: [id])
+  memberId    String?
+  items       Json
+  preparation String @default("INCOMING")
+  paymentStatus String @default("OPEN")
+  version     Int @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([preparation, createdAt])
+}
+model Lead {
+  id         String @id @default(cuid())
+  name       String
+  email      String
+  message    String
+  sport      String?
+  assignedTo String?
+  memberId   String?
+  status     String @default("NEW")
+  followUpAt DateTime?
+  createdAt  DateTime @default(now())
+  activities LeadActivity[]
+  @@index([status, followUpAt])
+}
+model LeadActivity {
+  id        String @id @default(cuid())
+  leadId    String
+  lead      Lead @relation(fields: [leadId], references: [id])
+  actorId   String
+  note      String
+  createdAt DateTime @default(now())
+}
+model StaffNotification {
+  id        String @id @default(cuid())
+  kind      String
+  entityId  String
+  message   String
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  @@index([readAt, createdAt])
+}
+model Employee {
+  id          String @id @default(cuid())
+  userId      String @unique
+  title       String
+  salaryPaise Int
+  shifts      StaffShift[]
+  leaves      LeaveRequest[]
+  payslips    Payslip[]
+}
+model StaffShift {
+  id        String @id @default(cuid())
+  employeeId String
+  employee Employee @relation(fields: [employeeId], references: [id])
+  startsAt DateTime
+  endsAt   DateTime
+}
+model LeaveRequest {
+  id         String @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  startsAt   DateTime
+  endsAt     DateTime
+  reason     String
+  status     String @default("PENDING")
+}
+model Payslip {
+  id          String @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  period      String
+  snapshot    Json
+  finalizedAt DateTime?
+  @@unique([employeeId, period])
+}
+model CashShift {
+  id                 String @id @default(cuid())
+  actorId            String
+  openingPaise       Int
+  receiptsPaise      Int @default(0)
+  refundsPaise       Int @default(0)
+  payoutsPaise       Int @default(0)
+  countedPaise       Int?
+  discrepancyReason String?
+  openedAt           DateTime @default(now())
+  closedAt           DateTime?
+}
