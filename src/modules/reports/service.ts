@@ -175,9 +175,36 @@ export async function financialReport(
           .filter((i) => i.department === department)
           .reduce((s, i) => s + i.outstandingPaise, 0),
       }));
+      // What the club owes for the month the report ends in: staff pay (finalized payslips are exact,
+      // the rest is estimated from configured salaries) and the withholding to remit.
+      const period = input.to.slice(0, 7);
+      const [employees, payslips, clubSettings] = await Promise.all([
+        tx.employee.findMany({ where: { active: true }, include: { payslips: { where: { period } } } }),
+        tx.payslip.findMany({ where: { period, finalizedAt: { not: null } } }),
+        tx.clubSettings.findUniqueOrThrow({ where: { id: "club" } }),
+      ]);
+      const finalized = new Map(payslips.map((p) => [p.employeeId, p.snapshot as { grossPaise: number; taxPaise: number; netPaise: number }]));
+      let payrollGross = 0, payrollTax = 0, payrollNet = 0;
+      for (const e of employees) {
+        const slip = finalized.get(e.id);
+        const gross = slip?.grossPaise ?? e.salaryPaise;
+        const tax = slip?.taxPaise ?? Math.floor((gross * clubSettings.payrollTaxBps + 5000) / 10000);
+        payrollGross += gross;
+        payrollTax += tax;
+        payrollNet += slip?.netPaise ?? gross - tax;
+      }
       return {
         range: input,
         generatedAt: new Date(),
+        obligations: {
+          payrollPeriod: period,
+          employeeCount: employees.length,
+          payslipsFinalized: employees.filter((e) => finalized.has(e.id)).length,
+          payrollGrossPaise: payrollGross,
+          withholdingPaise: payrollTax,
+          payrollNetPaise: payrollNet,
+          withholdingLabel: clubSettings.payrollTaxLabel,
+        },
         sales,
         payments,
         credits,
@@ -279,7 +306,27 @@ export async function operationalReport(
       records,
     };
   });
+  // What the clubhouse sold in the range, split into the bar and the kitchen/cafeteria by menu category.
+  const [lines, menu] = await Promise.all([
+    db.kitchenLine.findMany({ where: { status: "ACTIVE", ticket: { createdAt: { gte: start, lt: end } } }, select: { menuId: true, quantity: true, totalPaise: true } }),
+    db.menuItem.findMany({ select: { id: true, category: true } }),
+  ]);
+  const categoryOf = new Map(menu.map((m) => [m.id, m.category]));
+  const byCategory = new Map<string, { category: string; quantity: number; totalPaise: number }>();
+  for (const line of lines) {
+    const category = categoryOf.get(line.menuId) ?? "Other";
+    const row = byCategory.get(category) ?? { category, quantity: 0, totalPaise: 0 };
+    row.quantity += line.quantity;
+    row.totalPaise += line.totalPaise;
+    byCategory.set(category, row);
+  }
+  const categories = [...byCategory.values()].sort((a, b) => b.totalPaise - a.totalPaise);
   return {
+    clubhouse: {
+      barPaise: categories.filter((c) => c.category === "Bar").reduce((n, c) => n + c.totalPaise, 0),
+      kitchenPaise: categories.filter((c) => c.category !== "Bar").reduce((n, c) => n + c.totalPaise, 0),
+      categories,
+    },
     utilization,
     lowStock: lowStock.filter((v) => v.stock - v.reserved <= 5),
     expiring: expiring.filter((m) => m.endsAt <= new Date(+now + 7 * 86400000)),
