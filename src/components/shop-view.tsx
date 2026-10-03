@@ -1,0 +1,17 @@
+"use client";
+import Link from "next/link";
+import Image from "next/image";
+import { useState } from "react";
+import { Search, ArrowUpRight } from "lucide-react";
+import type { publicData } from "@/modules/public/queries";
+import { money } from "@/lib/utils";
+import { Input } from "./ui/input";
+import { Button } from "./ui/button";
+type Products = Awaited<ReturnType<typeof publicData>>["products"];
+export function ShopView({ products }: { products: Products }) {
+  const [sport, setSport] = useState("all");
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("all");
+  const filtered = products.filter(p => (sport === "all" || p.sport === sport) && (category === "all" || p.category === category) && p.name.toLowerCase().includes(search.toLowerCase()));
+  return <section className="site-width py-16 md:py-24"><p className="eyebrow mb-5 text-orange-400">The Champions Shop</p><div className="flex flex-wrap items-end justify-between gap-7"><h1 className="display-title max-w-6xl">Game-changing<br/>essentials.</h1><p className="soft-text max-w-xs text-sm">From your first racket to your favourite kit. A considered collection for every kind of player.</p></div><nav className="mb-7 mt-12 flex flex-wrap gap-3" aria-label="Filter products by sport">{["all", "tennis", "padel", "badminton", "cricket"].map(s => <Button key={s} variant={s === sport ? "default" : "outline"} onClick={() => setSport(s)} aria-pressed={s === sport}>{s === "all" ? "All gear" : s[0].toUpperCase()+s.slice(1)}</Button>)}</nav><div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row"><div className="relative max-w-md flex-1"><label className="sr-only" htmlFor="shop-search">Search products</label><Search className="absolute left-4 top-4 text-neutral-500" size={16}/><Input id="shop-search" value={search} onChange={e => setSearch(e.target.value)} className="pl-11" placeholder="Find your next essential"/></div><select className="sm:max-w-52" value={category} onChange={e => setCategory(e.target.value)} aria-label="Product category"><option value="all">All categories</option>{[...new Set(products.map(p => p.category))].sort().map(c => <option key={c}>{c}</option>)}</select></div><p className="mb-6 text-xs text-neutral-500">{filtered.length} essentials · membership benefits apply at checkout</p>{!filtered.length && <p className="soft-text py-16">No gear matches that search. Try another sport or category.</p>}<div className="grid grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-3 xl:grid-cols-4">{filtered.map(p => <Link key={p.id} href={`/shop/${p.id}`} className="group"><div className="relative aspect-square overflow-hidden rounded bg-[#e7e5de]"><Image src={p.image} alt={p.name} fill sizes="(max-width:640px) 50vw, 25vw" className="object-contain p-5 transition-transform duration-700 group-hover:scale-105"/><ArrowUpRight className="absolute right-4 top-4 text-black/50" size={18}/></div><p className="mt-4 text-[10px] uppercase tracking-widest text-neutral-500">{p.category}</p><h2 className="mt-2 text-sm">{p.name}</h2><div className="mt-3 flex flex-wrap justify-between gap-2 text-xs"><span>{money(Math.min(...p.variants.map(v => v.pricePaise)))}</span><span className="text-neutral-500">{p.variants.some(v => v.available > 0) ? "In stock" : "Sold out"}</span></div></Link>)}</div><p className="notice mt-12">Catalogue preview. Cart, pickup, delivery and retail checkout arrive in stage two. Your membership purchase is available now.</p></section>;
+}
