@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useItemDraft } from "./safe-drafts";
 import { useQuery } from "@tanstack/react-query";
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { api } from "@/lib/api-client";
@@ -908,7 +909,17 @@ export function CRM() {
                   {new Date(q.validUntil).toLocaleDateString("en-IN", {
                     timeZone: "Asia/Kolkata",
                   })}{" "}
-                  · {(q.snapshot as {durationDays:number}).durationDays} days · court {(q.snapshot as {courtDiscountBps:number}).courtDiscountBps/100}% · shop {(q.snapshot as {shopDiscountBps:number}).shopDiscountBps/100}% · clubhouse {(q.snapshot as {foodDiscountBps:number}).foodDiscountBps/100}% discount
+                  · {(q.snapshot as { durationDays: number }).durationDays} days
+                  · court{" "}
+                  {(q.snapshot as { courtDiscountBps: number })
+                    .courtDiscountBps / 100}
+                  % · shop{" "}
+                  {(q.snapshot as { shopDiscountBps: number }).shopDiscountBps /
+                    100}
+                  % · clubhouse{" "}
+                  {(q.snapshot as { foodDiscountBps: number }).foodDiscountBps /
+                    100}
+                  % discount
                 </p>
               ))}
               {l.activities.map((a) => (
@@ -941,7 +952,9 @@ export function Inventory() {
   const [member, setMember] = useState<Member | null>(null),
     [guest, setGuest] = useState(""),
     [method, setMethod] = useState("CASH"),
-    [items, setItems] = useState<{ variantId: string; quantity: number }[]>([]),
+    [items, setItems] = useItemDraft<{ variantId: string; quantity: number }>(
+      "counter-items",
+    ),
     [delivery, setDelivery] = useState(false);
   return (
     <div className="space-y-6">
@@ -1295,9 +1308,11 @@ export function POS() {
     [guest, setGuest] = useState(""),
     [table, setTable] = useState(""),
     [selected, setSelected] = useState<string | null>(null),
-    [items, setItems] = useState<
-      { menuId: string; quantity: number; note: string }[]
-    >([]),
+    [items, setItems] = useItemDraft<{
+      menuId: string;
+      quantity: number;
+      note: string;
+    }>("pos-items"),
     [method, setMethod] = useState("CASH");
   const bill = query.data?.bills.find((b) => b.id === selected);
   return (
@@ -1316,7 +1331,7 @@ export function POS() {
                 onClick={() => {
                   setTable(t.id);
                   setSelected(b?.id || null);
-                  setItems([]);
+                  if (table && table !== t.id) setItems([]);
                 }}
               >
                 <p className="font-semibold">{t.name}</p>

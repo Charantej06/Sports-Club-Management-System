@@ -15,7 +15,7 @@ type Availability = {
   name: string;
   indoor: boolean;
   hourlyPaise: number;
-  slots: { hour: number; available: boolean; reason: string | null }[];
+  slots: { hour: number; available: boolean; elapsed: boolean; reason: string | null }[];
 }[];
 type Hold = {
   id: string;
@@ -192,9 +192,10 @@ export function CourtsView({
                   {c.slots.map((s) => (
                     <button
                       key={s.hour}
-                      disabled={action.isPending || !!s.reason}
+                      disabled={action.isPending || !!s.reason || s.elapsed}
+                      aria-label={`${c.name}, ${day}, ${String(s.hour).padStart(2, "0")}:00, ${s.elapsed ? "session started" : s.reason ? "closed" : s.available ? "book" : "join waiting list"}`}
                       title={
-                        s.reason ||
+                        (s.elapsed ? "This session has started." : s.reason) ||
                         (s.available
                           ? "Hold this session"
                           : "Join waiting list")
@@ -211,7 +212,9 @@ export function CourtsView({
                     >
                       {String(s.hour).padStart(2, "0")}:00
                       <span className="mt-1 block text-[9px]">
-                        {s.reason
+                        {s.elapsed
+                          ? "Started"
+                          : s.reason
                           ? "Closed"
                           : s.available
                             ? "Book"
@@ -241,7 +244,9 @@ export function CourtsView({
           One court, a shared game. Reserve your place or join the waiting list
           when it is full.
         </p>
-        {!social.data?.length && (
+        {social.isPending && <p className="mt-6" role="status">Loading social sessions…</p>}
+        {social.error && <p className="field-error mt-6" role="alert">{social.error.message}</p>}
+        {social.data && !social.data.length && (
           <p className="mt-6 text-sm text-neutral-500">
             Friday sessions appear when reception opens registration.
           </p>
