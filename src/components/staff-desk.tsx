@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Reception,
@@ -16,8 +16,23 @@ import {
   ScanLine,
   Users,
   Mail,
-  ClipboardList,
+  LayoutDashboard,
+  CalendarDays,
+  MessageSquare,
+  Trophy,
+  Package,
+  UtensilsCrossed,
+  ChefHat,
+  BarChart3,
+  Receipt,
+  Wallet,
+  FileText,
+  History,
+  BadgePercent,
+  ShieldCheck,
+  Inbox,
   ArrowUpRight,
+  type LucideIcon,
 } from "lucide-react";
 import type { ClubSettings, MembershipPlan } from "@/generated/prisma/client";
 import { api } from "@/lib/api-client";
@@ -33,6 +48,7 @@ import {
   AuditWorkspace,
 } from "./owner-workspaces";
 import { DraftScope } from "./safe-drafts";
+import { FacilitiesWorkspace } from "./facilities-workspace";
 type LeadView = {
   id: string;
   name: string;
@@ -55,130 +71,129 @@ export function StaffDesk({
   activeMembers: number;
   plans: MembershipPlan[];
 }) {
-  const [tab, setTab] = useState("today");
+  const [tab, setTabState] = useState("today");
   const owner = role === "OWNER";
   const lookupAllowed = ["OWNER", "RECEPTION", "CASHIER"].includes(role);
-  const tabs = [
-    ...(owner
-      ? [
-          { id: "reports", name: "Owner reports", icon: ClipboardList },
-          { id: "documents", name: "Business documents", icon: ClipboardList },
-          { id: "delivery", name: "Reminders & delivery", icon: Mail },
-        ]
-      : []),
+  const frontDesk = ["OWNER", "RECEPTION"].includes(role);
+  const groups: { label: string; items: { id: string; name: string; icon: LucideIcon }[] }[] = [
+    { label: "Overview", items: [{ id: "today", name: "Club desk", icon: LayoutDashboard }] },
     {
-      id: "audit",
-      name: owner ? "Audit history" : "My audit history",
-      icon: ClipboardList,
+      label: "Front desk",
+      items: [
+        ...(frontDesk ? [{ id: "reception", name: "Reception calendar", icon: CalendarDays }] : []),
+        ...(lookupAllowed ? [{ id: "lookup", name: "Member lookup", icon: ScanLine }] : []),
+        ...(frontDesk ? [{ id: "crm", name: "Enquiries & CRM", icon: MessageSquare }] : []),
+      ],
     },
-    ...(lookupAllowed
-      ? [{ id: "cash", name: "Cash reconciliation", icon: ClipboardList }]
-      : []),
     {
-      id: "people",
-      name: owner ? "People & payroll" : "My employment",
-      icon: Users,
+      label: "Courts, shop & clubhouse",
+      items: [
+        ...(owner ? [{ id: "facilities", name: "Courts & sports", icon: Trophy }] : []),
+        ...(["OWNER", "CASHIER"].includes(role)
+          ? [
+              { id: "inventory", name: "Shop & inventory", icon: Package },
+              { id: "pos", name: "Waiter / POS", icon: UtensilsCrossed },
+            ]
+          : []),
+        ...(["OWNER", "KITCHEN", "CASHIER"].includes(role) ? [{ id: "kitchen", name: "Kitchen queue", icon: ChefHat }] : []),
+      ],
     },
-    ...(["OWNER", "RECEPTION"].includes(role)
-      ? [
-          { id: "reception", name: "Reception calendar", icon: ClipboardList },
-          { id: "crm", name: "Enquiries & CRM", icon: Users },
-        ]
-      : []),
-    ...(["OWNER", "CASHIER"].includes(role)
-      ? [
-          { id: "inventory", name: "Shop & inventory", icon: ClipboardList },
-          { id: "pos", name: "Waiter / POS", icon: ClipboardList },
-        ]
-      : []),
-    ...(["OWNER", "KITCHEN", "CASHIER"].includes(role)
-      ? [{ id: "kitchen", name: "Kitchen queue", icon: ClipboardList }]
-      : []),
-    ...(lookupAllowed
-      ? [{ id: "billing", name: "Billing & refunds", icon: ClipboardList }]
-      : []),
-    { id: "today", name: "Club desk", icon: ClipboardList },
-    ...(lookupAllowed
-      ? [{ id: "lookup", name: "Member lookup", icon: ScanLine }]
-      : []),
-    ...(owner
-      ? [
-          { id: "settings", name: "Business settings", icon: Settings },
-          { id: "plans", name: "Membership plans", icon: Users },
-          { id: "users", name: "Staff access", icon: Users },
-          { id: "inbox", name: "Local test inbox", icon: Mail },
-        ]
-      : []),
-  ];
+    {
+      label: "Finance",
+      items: [
+        ...(owner ? [{ id: "reports", name: "Owner reports", icon: BarChart3 }] : []),
+        ...(lookupAllowed ? [{ id: "billing", name: "Billing & refunds", icon: Receipt }, { id: "cash", name: "Cash reconciliation", icon: Wallet }] : []),
+        ...(owner ? [{ id: "documents", name: "Business documents", icon: FileText }] : []),
+      ],
+    },
+    {
+      label: "People",
+      items: [
+        { id: "people", name: owner ? "People & payroll" : "My employment", icon: Users },
+        { id: "audit", name: owner ? "Audit history" : "My audit history", icon: History },
+      ],
+    },
+    {
+      label: "Administration",
+      items: owner
+        ? [
+            { id: "plans", name: "Membership plans", icon: BadgePercent },
+            { id: "settings", name: "Business settings", icon: Settings },
+            { id: "users", name: "Staff access", icon: ShieldCheck },
+            { id: "delivery", name: "Reminders & email", icon: Mail },
+            { id: "inbox", name: "Local test inbox", icon: Inbox },
+          ]
+        : [],
+    },
+  ].filter((group) => group.items.length);
+  const tabs = groups.flatMap((group) => group.items);
+  const setTab = (id: string) => {
+    setTabState(id);
+    window.history.replaceState(null, "", `#${id}`);
+    window.scrollTo({ top: 0 });
+  };
+  // Restore the open workspace after a reload or when a link such as /staff#facilities is shared.
+  useEffect(() => {
+    const sync = () => {
+      const wanted = window.location.hash.slice(1);
+      if (wanted && tabs.some((item) => item.id === wanted)) setTabState(wanted);
+    };
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, [role]);
+  const current = tabs.find((item) => item.id === tab);
+  const roleLabel = role === "CASHIER" ? "Waiter / Cashier" : role[0] + role.slice(1).toLowerCase();
+  const today = new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Kolkata" }).format(new Date());
   return (
     <DraftScope userId={userId}>
       <div className="staff-theme min-h-[80vh]">
-        <div className="site-width py-10">
-          <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div className="site-width py-8 md:py-10">
+          <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
-                Champions operations
-              </p>
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-                Hello, {name.split(" ")[0]}.
-              </h1>
+              <p className="text-xs font-medium uppercase tracking-widest text-slate-500">Champions operations · {today}</p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Hello, {name.split(" ")[0]}.</h1>
             </div>
-            <span className="rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-xs text-orange-800">
-              {role === "CASHIER"
-                ? "Waiter / Cashier"
-                : role[0] + role.slice(1).toLowerCase()}{" "}
-              workspace
-            </span>
+            <span className="rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-xs font-medium text-orange-800">{roleLabel} workspace</span>
           </div>
-          <div className="grid gap-7 lg:grid-cols-[220px_1fr]">
-            <nav
-              className="flex content-start gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible"
-              aria-label="Staff navigation"
-            >
-              {tabs.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setTab(item.id)}
-                  aria-current={tab === item.id ? "page" : undefined}
-                  className={`flex shrink-0 items-center gap-3 whitespace-nowrap rounded-lg px-4 py-3 text-left text-sm lg:whitespace-normal ${tab === item.id ? "bg-[#26303d] text-white" : "text-slate-600 hover:bg-white"}`}
-                >
-                  <item.icon size={17} />
-                  {item.name}
-                </button>
+          <div className="grid gap-6 lg:grid-cols-[250px_1fr]">
+            <nav className="staff-nav lg:sticky lg:top-[104px] lg:max-h-[calc(100vh-128px)] lg:self-start lg:overflow-y-auto" aria-label="Staff navigation">
+              {groups.map((group) => (
+                <div key={group.label} className="staff-nav-group">
+                  <p className="staff-nav-label">{group.label}</p>
+                  <div className="staff-nav-items">
+                    {group.items.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setTab(item.id)}
+                        aria-current={tab === item.id ? "page" : undefined}
+                        className="staff-nav-item"
+                      >
+                        <item.icon size={17} aria-hidden="true" />
+                        <span>{item.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </nav>
-            <div className="min-w-0">
+            <section className="min-w-0 space-y-6" aria-label={current?.name}>
               {tab === "today" && (
                 <>
                   <OperationalHome role={role} onNavigate={setTab} />
-                  <div className="surface mt-6">
-                    <h2 className="text-lg font-semibold">
-                      Your operational workspace
-                    </h2>
-                    <p className="mt-3 text-sm text-slate-500">
-                      Use the live workspaces to manage arrivals, enquiries,
-                      collections, tables and preparation. Records refresh every
-                      five seconds.
-                    </p>
-                  </div>
-                  {owner ? (
-                    <OwnerReports />
-                  ) : role === "KITCHEN" ? (
-                    <Kitchen />
-                  ) : role === "CASHIER" ? (
-                    <POS />
-                  ) : (
-                    <Reception plans={plans} />
-                  )}
+                  {owner ? <OwnerReports /> : role === "KITCHEN" ? <Kitchen /> : role === "CASHIER" ? <POS /> : <Reception plans={plans} />}
                 </>
               )}
-              {tab === "reception" && <Reception plans={plans} />}{" "}
-              {tab === "crm" && <CRM />} {tab === "inventory" && <Inventory />}{" "}
-              {tab === "pos" && <POS />} {tab === "kitchen" && <Kitchen />}{" "}
+              {tab === "reception" && <Reception plans={plans} />}
+              {tab === "crm" && <CRM />}
+              {tab === "inventory" && <Inventory />}
+              {tab === "pos" && <POS />}
+              {tab === "kitchen" && <Kitchen />}
               {tab === "billing" && <Financial />}
               {tab === "lookup" && <LookupForm />}
               {tab === "settings" && <SettingsForm />}
-              {tab === "plans" && <PlansEditor plans={plans} />}{" "}
+              {tab === "plans" && <PlansEditor plans={plans} />}
               {tab === "users" && <StaffAccess />}
               {tab === "inbox" && <LocalInbox />}
               {tab === "reports" && <OwnerReports />}
@@ -187,7 +202,8 @@ export function StaffDesk({
               {tab === "documents" && <BusinessDocuments />}
               {tab === "delivery" && <DeliveryWorkspace />}
               {tab === "audit" && <AuditWorkspace />}
-            </div>
+              {tab === "facilities" && <FacilitiesWorkspace />}
+            </section>
           </div>
         </div>
       </div>
@@ -208,30 +224,42 @@ function OperationalHome({
     refetchInterval: 5000,
   });
   return (
-    <div className="mb-5">
-      <h2 className="mb-4 text-lg font-semibold">Today's actions</h2>
-      {query.isPending && <p role="status">Loading actions…</p>}
+    <section aria-labelledby="today-actions">
+      <h2 id="today-actions" className="mb-3 text-lg font-semibold tracking-tight">
+        Needs your attention today
+      </h2>
+      {query.isPending && (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Loading actions">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="surface h-28 animate-pulse !bg-slate-100" />
+          ))}
+        </div>
+      )}
       {query.error && (
         <p role="alert" className="field-error">
           {query.error.message}
         </p>
       )}
+      {query.data && !query.data.length && (
+        <div className="surface text-sm text-slate-500">Nothing is waiting. New activity appears here automatically.</div>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {query.data?.map((c) => (
           <button
             key={c.label}
+            type="button"
             onClick={() => onNavigate(c.tab)}
-            className="surface text-left hover:border-orange-300"
+            className="surface group text-left transition-colors hover:border-orange-300 hover:bg-orange-50/30"
           >
-            <span className="block text-xs text-slate-600">{c.label}</span>
-            <strong className="mt-3 block text-2xl">{c.count}</strong>
-            <span className="mt-3 block text-xs text-orange-800">
-              Open workspace →
+            <span className="block text-xs font-medium uppercase tracking-wider text-slate-500">{c.label}</span>
+            <strong className={`mt-2 block text-3xl font-semibold tracking-tight ${c.count > 0 ? "text-slate-900" : "text-slate-400"}`}>{c.count}</strong>
+            <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-orange-800 group-hover:underline">
+              Open workspace <ArrowUpRight size={13} aria-hidden="true" />
             </span>
           </button>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 function LookupForm() {
@@ -408,8 +436,10 @@ function PlansEditor({ plans }: { plans: MembershipPlan[] }) {
       <div className="surface">
         <h2 className="text-xl font-semibold">Membership plans</h2>
         <p className="mt-3 text-sm text-slate-500">
-          These values apply to new purchases. Existing terms and receipts
-          retain their saved benefits and prices.
+          Set the monthly price; members choose 1 month, 3 months or annual at
+          checkout and the 3-month and annual discounts are applied to it. These
+          values apply to new purchases. Existing terms and receipts retain their
+          saved benefits and prices.
         </p>
       </div>
       {plans.map((p) => (
@@ -433,8 +463,9 @@ function PlanFields({ plan }: { plan: MembershipPlan }) {
     },
   });
   const fields = [
-    ["pricePaise", "Price · paise", 100, 100000000],
-    ["durationDays", "Term · days", 1, 730],
+    ["pricePaise", "Monthly price · paise", 100, 100000000],
+    ["quarterDiscountBps", "3-month discount · basis points", 0, 10000],
+    ["annualDiscountBps", "Annual discount · basis points", 0, 10000],
     ["courtDiscountBps", "Court discount · basis points", 0, 10000],
     ["shopDiscountBps", "Shop discount · basis points", 0, 10000],
     ["foodDiscountBps", "Clubhouse discount · basis points", 0, 10000],
@@ -457,7 +488,7 @@ function PlanFields({ plan }: { plan: MembershipPlan }) {
       <div className="mb-6 flex justify-between">
         <h3 className="text-lg font-semibold">{plan.name}</h3>
         <span className="text-sm text-slate-500">
-          {money(mutation.data?.pricePaise ?? plan.pricePaise)} ·{" "}
+          {money(mutation.data?.pricePaise ?? plan.pricePaise)} / month ·{" "}
           {plan.juniorOnly ? "Under 18" : "All players"}
         </span>
       </div>
