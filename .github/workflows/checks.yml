@@ -1,0 +1,44 @@
+name: Checks
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: champions
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: champions_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U champions -d champions_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://champions:test_password@localhost:5432/champions_test
+      BETTER_AUTH_SECRET: ci-only-test-secret-at-least-32-characters
+      BETTER_AUTH_URL: http://localhost:3000
+      TRUSTED_ORIGINS: http://localhost:3000
+      PAYMENT_MODE: local
+      EMAIL_MODE: local
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run db:migrate
+      - run: npm run db:seed
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: |
+          npm start > /tmp/champions-app.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/api/health; then break; fi
+            sleep 2
+          done
+          npm run test:integration
