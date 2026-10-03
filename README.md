@@ -16,7 +16,7 @@ npm run db:seed
 npm run dev
 ```
 
-Open **http://localhost:3000**. In a separate terminal run `npm run worker` for email, scheduled membership reminders, hold expiry, waiting offers, CRM follow-ups and verified gateway capture jobs. Production-style local run: `npm run build`, then `npm start`. Keep the worker running during normal operation; checkout still rejects expired holds if the worker is temporarily stopped.
+Open **http://localhost:3000**. **Quickest way:** `npm run dev:all` starts the app and the worker together (Ctrl+C stops both); after `npm run build`, `npm run start:all` does the same in production mode. Otherwise run `npm run worker` in a separate terminal for email, scheduled membership reminders, hold expiry, waiting offers, CRM follow-ups and verified gateway capture jobs. Production-style local run: `npm run build`, then `npm start`. Keep the worker running during normal operation; checkout still rejects expired holds if the worker is temporarily stopped.
 
 `db:local` uses the installed binaries at `C:/Program Files/PostgreSQL/18/bin`. Override `PG_BIN` for another installation. It creates an isolated persistent cluster in `.local/postgres` bound to **127.0.0.1:5433**. It never edits or uses the existing system cluster on 5432. Stop this cluster with `node scripts/local-postgres.mjs --stop`. On other operating systems, using your own PostgreSQL instance or Compose is recommended; set `DATABASE_URL` accordingly.
 

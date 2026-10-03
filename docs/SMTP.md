@@ -113,9 +113,11 @@ Check the inbox **and the spam folder**. If a step fails, the message explains w
 ## Step 4: Restart the app **and** the worker
 
 ```bash
-npm run build && npm start      # or: npm run dev
-npm run worker                  # in a second terminal; keep it running
+npm run dev:all                 # app + worker together (Ctrl+C stops both)
+# or, in production mode:  npm run build && npm run start:all
 ```
+
+(The older way still works: `npm run dev` or `npm start` in one terminal and `npm run worker` in another. The worker must be running or no email is sent.)
 
 ---
 
