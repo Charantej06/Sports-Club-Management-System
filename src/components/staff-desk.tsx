@@ -331,6 +331,7 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
           "payrollTaxLabel",
         ])
           input[key] = String(data.get(key));
+        input.slotMinutes = Number(data.get("slotMinutes"));
         input.reminderDays = String(data.get("reminderDays"))
           .split(",")
           .map((s) => Number(s.trim()));
@@ -361,6 +362,13 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
             />
           </div>
         ))}
+        <div>
+          <label htmlFor="setting-slotMinutes">A new session can start every</label>
+          <select id="setting-slotMinutes" name="slotMinutes" className="mt-2" defaultValue={settings.slotMinutes}>
+            <option value={30}>30 minutes (6:00, 6:30, 7:00…)</option>
+            <option value={60}>60 minutes (6:00, 7:00, 8:00…)</option>
+          </select>
+        </div>
         <div>
           <label htmlFor="tax-label">Payroll withholding label</label>
           <Input

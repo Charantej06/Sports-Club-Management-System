@@ -2,6 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useItemDraft } from "./safe-drafts";
 import { promptText } from "./prompt-dialog";
+import { MemberHistory } from "./member-history";
+import { FreeSlots } from "./free-slots";
+import { MemberRegistration } from "./member-registration";
 import { useQuery } from "@tanstack/react-query";
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { api } from "@/lib/api-client";
@@ -242,6 +245,7 @@ export function MemberFinder({
           <p className="mt-2 text-xs text-slate-500">
             Identity identified. Payment needs separate authorization.
           </p>
+          <MemberHistory id={member.id} />
         </div>
       )}
     </div>
@@ -292,7 +296,22 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
     [member, setMember] = useState<Member | null>(null),
     [guest, setGuest] = useState(""),
     [method, setMethod] = useState("CASH"),
-    [selected, setSelected] = useState<string | null>(null);
+    [selected, setSelected] = useState<string | null>(null),
+    [courtChoice, setCourtChoice] = useState(""),
+    [timeChoice, setTimeChoice] = useState("");
+  const club = useQuery({
+    queryKey: ["club-hours"],
+    queryFn: () => api<{ settings: { openHour: number; closeHour: number; slotMinutes: number } }>("/api/public"),
+    staleTime: 60000,
+  });
+  // Bookable start times follow the owner's opening hours and slot spacing (a one-hour session must finish by closing).
+  const startTimes = (() => {
+    const { openHour = 6, closeHour = 23, slotMinutes = 30 } = club.data?.settings ?? {};
+    const out: string[] = [];
+    for (let m = openHour * 60; m + 60 <= closeHour * 60; m += slotMinutes)
+      out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+    return out;
+  })();
   const query = useWorkspace<{
     courts: Json<Court>[];
     bookings: Booking[];
@@ -353,7 +372,15 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
           {query.error.message}
         </p>
       )}
-      <div className="surface">
+      <FreeSlots
+        day={day}
+        onPick={(court, time) => {
+          setCourtChoice(court);
+          setTimeChoice(time);
+          document.getElementById("walk-in-booking")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }}
+      />
+      <div className="surface" id="walk-in-booking">
         <h3 className="font-semibold">One-hour walk-in / phone booking</h3>
         <div className="mt-5">
           <Subject
@@ -372,9 +399,10 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
               {
                 area: "booking",
                 input: {
-                  courtId: String(f.get("courtId")),
+                  courtId: courtChoice || String(f.get("courtId")),
                   day,
-                  hour: Number(f.get("hour")),
+                  hour: Number((timeChoice || String(f.get("time"))).split(":")[0]),
+                  minute: Number((timeChoice || String(f.get("time"))).split(":")[1]),
                   ...(member ? { userId: member.id } : { guestName: guest }),
                 },
               },
@@ -385,21 +413,24 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
           <div className="grid gap-4 sm:grid-cols-2">
             <label>
               Court
-              <select name="courtId">
-                {d?.courts.map((c) => (
+              <select name="courtId" value={courtChoice || undefined} onChange={(e) => setCourtChoice(e.target.value)}>
+                {d?.courts.filter((c) => c.status === "ACTIVE").map((c) => (
                   <option value={c.id} key={c.id}>
                     {c.name} · {money(c.hourlyPaise)}/hour
                   </option>
                 ))}
               </select>
             </label>
-            <Field
-              label="Start hour (club time)"
-              name="hour"
-              type="number"
-              min={0}
-              max={23}
-            />
+            <label>
+              Start time (club time)
+              <select name="time" value={timeChoice || undefined} onChange={(e) => setTimeChoice(e.target.value)}>
+                {startTimes.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <Button disabled={action.isPending}>
             Hold session & review price
@@ -557,6 +588,7 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
           </article>
         ))}
       </div>
+      <MemberRegistration onRegistered={setMember} />
       <div className="surface">
         <h3 className="font-semibold">Process membership</h3>
         <p className="mt-3 text-xs text-slate-500">
@@ -647,7 +679,7 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
           <label>
             Court
             <select name="courtId">
-              {d?.courts.map((c) => (
+              {d?.courts.filter((c) => c.status === "ACTIVE").map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
@@ -699,7 +731,7 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
           <label>
             Court
             <select name="courtId">
-              {d?.courts.map((c) => (
+              {d?.courts.filter((c) => c.status === "ACTIVE").map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
