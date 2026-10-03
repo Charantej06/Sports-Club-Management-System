@@ -16,6 +16,7 @@
     "db:seed": "prisma db seed",
     "db:local": "node scripts/local-postgres.mjs",
     "setup:env": "node scripts/setup-env.mjs",
+    "mail:verify": "tsx scripts/verify-smtp.ts",
     "worker": "tsx src/worker.ts"
   },
   "dependencies": {

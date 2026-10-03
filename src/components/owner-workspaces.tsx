@@ -1,4 +1,5 @@
 "use client";
+import { EmailHealth } from "./email-health";
 import Link from "next/link";
 import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1166,6 +1167,7 @@ export function DeliveryWorkspace() {
     action = useAdmin();
   return (
     <div className="space-y-4">
+      <EmailHealth />
       <div className="surface space-y-4">
         <h2 className="text-xl font-semibold">
           Membership reminders & delivery

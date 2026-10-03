@@ -24,3 +24,17 @@ test("Profile rejects invalid dates, privileged keys and invalid phone numbers",
   assert.equal(profileSchema.safeParse({ name: "Test Player", phone: "call me", dateOfBirth: "" }).success, false);
   assert.equal(profileSchema.safeParse({ name: "Test Player", phone: "", dateOfBirth: "", role: "OWNER" }).success, false);
 });
+test("Mail settings report what is missing without exposing the password", async () => {
+  const { mailSettings, describeMailError } = await import("../src/modules/mail/transport");
+  const env = { EMAIL_MODE: "smtp", SMTP_HOST: "smtp.example.com", SMTP_PORT: "465", SMTP_USER: "club@example.com", SMTP_PASSWORD: "hunter2-secret", EMAIL_FROM: "Club <club@example.com>", BETTER_AUTH_URL: "https://club.example.com" };
+  const ok = mailSettings(env);
+  assert.equal(ok.configured, true);
+  assert.equal(ok.secure, true, "port 465 uses implicit TLS");
+  assert.equal(JSON.stringify(ok).includes("hunter2"), false);
+  assert.deepEqual(mailSettings({ ...env, SMTP_HOST: "", EMAIL_FROM: "" }).missing, ["SMTP_HOST", "EMAIL_FROM"]);
+  assert.equal(mailSettings({ ...env, SMTP_PORT: "587" }).secure, false);
+  assert.equal(mailSettings({ EMAIL_MODE: "local" }).configured, true);
+  const text = describeMailError({ code: "EAUTH", responseCode: 535, response: "535 Login failed for hunter2-secret" }, env);
+  assert.match(text, /EAUTH/);
+  assert.equal(text.includes("hunter2-secret"), false, "credentials are redacted from stored errors");
+});

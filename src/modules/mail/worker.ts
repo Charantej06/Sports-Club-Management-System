@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import nodemailer from "nodemailer";
+import { createMailTransport, describeMailError, senderDomain } from "./transport";
 import type { Job } from "@/generated/prisma/client";
 import {
   expireBookingJob,
@@ -89,28 +89,13 @@ export async function processNextJob() {
           }
           if (message.status !== "DELIVERED") {
             if (message.mode === "smtp") {
-              if (!process.env.SMTP_HOST || !process.env.EMAIL_FROM)
-                throw new Error("SMTP is not configured");
-              const transport = nodemailer.createTransport({
-                host: process.env.SMTP_HOST,
-                port: Number(process.env.SMTP_PORT || 587),
-                secure: process.env.SMTP_PORT === "465",
-                connectionTimeout: 10000,
-                greetingTimeout: 10000,
-                socketTimeout: 30000,
-                auth: process.env.SMTP_USER
-                  ? {
-                      user: process.env.SMTP_USER,
-                      pass: process.env.SMTP_PASSWORD,
-                    }
-                  : undefined,
-              });
+              const transport = createMailTransport();
               await transport.sendMail({
                 from: process.env.EMAIL_FROM,
                 to: message.to,
                 subject: message.subject,
                 text: message.body,
-                messageId: `<${message.id}@champions.local>`,
+                messageId: `<${message.id}@${senderDomain()}>`,
               });
             } else if (message.mode !== "local")
               throw new Error("Unsupported delivery mode");
@@ -132,8 +117,13 @@ export async function processNextJob() {
       where: { id: job.id, status: "RUNNING", attempts: job.attempts },
       data: { status: "DONE", lockedAt: null, lastError: null },
     });
-  } catch {
-    // No email bodies, tokens or SMTP credentials in errors or logs.
+  } catch (error) {
+    // No email bodies, tokens or SMTP credentials in errors or logs; mail jobs keep a redacted reason
+    // so the owner can see why delivery failed.
+    const isMail = ["SEND_MAIL", "MEMBERSHIP_REMINDER"].includes(job.kind);
+    const reason = isMail
+      ? `Email delivery failed: ${describeMailError(error)}`
+      : "Delivery failed; check integration configuration.";
     const updated = await db.job.updateMany({
       where: { id: job.id, status: "RUNNING", attempts: job.attempts },
       data: {
@@ -142,7 +132,7 @@ export async function processNextJob() {
         runAt: new Date(
           Date.now() + Math.min(3600, 2 ** job.attempts * 10) * 1000,
         ),
-        lastError: "Delivery failed; check integration configuration.",
+        lastError: reason,
       },
     });
     if (
