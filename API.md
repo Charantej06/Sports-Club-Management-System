@@ -8,11 +8,11 @@ Protected routes authenticate the cookie with Better Auth and read current roles
 |---|---|---|
 | GET /api/health | DB readiness `{status:"ok"}`; 503 if unavailable | Public |
 | GET /api/public | Stored sports/courts, plans, active catalogue/variants, menu and limited contact/hour settings | Public |
-| GET /api/public/availability?sport=tennis&date=2026-10-03 | Court names, guest prices and hourly available/elapsed booleans plus closure reason; no reservation/user details | Public |
+| GET /api/public/availability?sport=tennis&date=2026-10-03 | Any offered sport id. Court names, guest prices, `maintenance`/`maintenanceReason` and hourly available/elapsed booleans plus closure reason; courts under maintenance report every slot unavailable; 404 `SPORT_UNAVAILABLE` for retired sports; no reservation/user details | Public |
 | POST /api/enquiries | `{name,email,sport,message,website:""}`; 201 `{id}`; rate-limited to 3/email/hour | Public, same origin |
 | GET /api/me | Own safe profile, membership snapshots, invoices/payment allocations/credits, bookings and orders | Session |
 | PATCH /api/me | `{name,phone,dateOfBirth}`; birthday `YYYY-MM-DD` or empty; 200 `{updated:true}` | Own account |
-| POST /api/me/membership | UUID `Idempotency-Key` header, `{planId:"gold"|"silver"|"junior",action:"purchase"|"renew"|"change",acceptPolicy:true,planVersion:"ISO timestamp from /api/public"}` | Verified own account |
+| POST /api/me/membership | UUID `Idempotency-Key` header, `{planId:"gold"|"silver"|"junior",months:1|3|12 (default 1),action:"purchase"|"renew"|"change",acceptPolicy:true,planVersion:"ISO timestamp from /api/public"}`. Price = monthly rate × months less the plan's 3-month/annual discount, rounded to a whole rupee, always calculated by the server; the term ends the same number of calendar months later | Verified own account |
 | GET /api/me/card | Active card PNG data URL/issued date, revoked flag, or null if no active membership | Own account |
 | DELETE /api/me/card | Revoke own card, 200 `{revoked:true}` | Own account |
 | POST /api/me/card | Issue if missing/revoked; active existing token reused, 200 `{issued:true}` | Own active membership |
@@ -20,7 +20,11 @@ Protected routes authenticate the cookie with Better Auth and read current roles
 | GET /api/staff/lookup?q=... | Exact ID/email or `champions:card:<opaque>`; limited name/ID/current plan/expiry | Owner, reception, cashier |
 | GET /api/staff/settings | Full editable business settings | Owner |
 | PATCH /api/staff/settings | Full operating-policy/contact fields; timezone fixed to Asia/Kolkata | Owner |
-| PATCH /api/staff/plans | `{id,pricePaise,durationDays,courtDiscountBps,shopDiscountBps,foodDiscountBps,freeSessionsWeek,active}` | Owner |
+| PATCH /api/staff/plans | `{id,pricePaise (monthly rate),quarterDiscountBps,annualDiscountBps,courtDiscountBps,shopDiscountBps,foodDiscountBps,freeSessionsWeek,active}` | Owner |
+| GET /api/staff/facilities | Every sport and court (including maintenance/retired) with upcoming booking counts | Owner/reception |
+| POST /api/staff/facilities | `{action:"createSport",name,description,image}`; `{action:"updateSport",id,name?,description?,image?,status?,statusNote?}`; `{action:"createCourt",sportId,name?,hourlyPaise,indoor}`; `{action:"updateCourt",id,name?,hourlyPaise?,indoor?,status?,statusNote?}`. `status` is `ACTIVE`, `MAINTENANCE` (note required, shown to players) or `INACTIVE` (retired, hidden). `image` must be a local `/images/…` asset. Facilities are never deleted; changes are audited. Existing bookings are not cancelled automatically | Owner |
+| GET /api/staff/mail | Email mode, masked SMTP settings, missing variables, warnings and delivery queue counts; never the password | Owner |
+| POST /api/staff/mail | `{action:"verify"}` tests the SMTP connection and login; `{action:"test"}` queues a test email to the owner through the worker | Owner |
 | PATCH /api/staff/users | `{email,role}`; existing account only, cannot change own role; target sessions revoked | Owner |
 | GET /api/staff/inbox | Latest 30 local test messages; unavailable in SMTP mode | Owner |
 
