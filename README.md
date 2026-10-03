@@ -1,6 +1,6 @@
 # Champions Club
 
-Stage 1 of the sports-club platform: a premium public site, real PostgreSQL records, secure accounts, memberships, local checkout, receipts, QR cards and an owner/staff foundation. Courts, shop and clubhouse have separate persisted read views; operational reservations, retail checkout and POS remain in PLAN.md for stages 2–3.
+Stages one and two are complete: secure accounts/memberships, court and trial booking, reception/CRM, online/counter retail and inventory, waiter/POS and kitchen, shared invoices/payments/credits/refunds and durable jobs. Customer pages retain the approved black-and-orange design; staff workspaces retain the white design. Reporting, HR/payroll and external gateway integration remain in PLAN.md for stage three.
 
 ## Local setup
 
@@ -16,7 +16,7 @@ npm run db:seed
 npm run dev
 ```
 
-Open **http://localhost:3000**. In a separate terminal run `npm run worker` for email processing. Production-style local run: `npm run build`, then `npm start`.
+Open **http://localhost:3000**. In a separate terminal run `npm run worker` for email, hold expiry, waiting offers and CRM follow-ups. Production-style local run: `npm run build`, then `npm start`. Keep the worker running during normal operation; checkout still rejects expired holds if the worker is temporarily stopped.
 
 `db:local` uses the installed binaries at `C:/Program Files/PostgreSQL/18/bin`. Override `PG_BIN` for another installation. It creates an isolated persistent cluster in `.local/postgres` bound to **127.0.0.1:5433**. It never edits or uses the existing system cluster on 5432. Stop this cluster with `node scripts/local-postgres.mjs --stop`. On other operating systems, using your own PostgreSQL instance or Compose is recommended; set `DATABASE_URL` accordingly.
 
@@ -44,43 +44,46 @@ All initial demo passwords: **Champions2026!**. Email addresses end in `@champio
 | junior | Riya, under-18 account eligible for Junior |
 | expired | Karan, expired Silver membership and renewal prompt |
 | owner | Priya, business settings, plans, staff access and local inbox |
-| reception | Neha, member lookup and incoming enquiries |
-| cashier | Dev, benefit lookup; waiter/cashier POS planned |
-| kitchen | Kabir, preparation workspace foundation |
+| reception | Neha, calendar, walk-ins, check-in, memberships and CRM |
+| cashier | Dev, counter inventory, waiter/POS and department billing |
+| kitchen | Kabir, separate preparation queue and item amendments |
 
 Demonstration actions persist. Ananya purchased and renewed Silver during browser verification. Her local account now has two contiguous saved terms, a QR card, two test receipts and an updated demo phone. Re-seeding does not erase this history.
 
 ## Judging walkthrough
 
 1. Explore the four sport panels on Home with mouse, touch or keyboard. Inspect facilities, plan prices, shop previews and the clubhouse. Use the mobile navigation at narrow widths.
-2. Open Book a Court. Change sport/date: hourly, one-hour availability reads reservations and closures from PostgreSQL and refreshes every 30 seconds. The preview cannot reserve a slot.
-3. Browse 36 shop products; filter by sport, category or text and view variants/stock. Browse the stored clubhouse menu and unavailable-item labels.
+2. Open Book a Court or the landing trial action. Select sport/date/hour, review the server-priced five-minute hold, then confirm local checkout. Inspect the saved booking/receipt in My Account. Full slots offer waiting-list entry; closures show reasons and alternatives. Friday social sessions have participant capacity and waiting lists.
+3. Browse 36 products, choose variants, add to cart and select pickup/delivery. Confirm the server-priced hold and inspect history/receipt. In Inventory, collect a pickup or dispatch/deliver an order, then inspect returns, restocking and stock movements. Counter sales share online inventory.
 4. Sign in as `new`, `junior` or `expired`. Edit your profile. Purchase or renew a membership in **local payment mode**. Accept the displayed demo policy, confirm, reload and inspect your membership card, history, statement and printable receipt. No funds are collected.
 5. Gold/Silver/Junior benefits and paid prices are snapshotted. Renewals append contiguous terms; immediate plan changes supersede current/future terms without deleting history. Junior requires a birth date and age under 18 at the new term start.
 6. Revoke/reissue a QR from My Account. Repeated reads reuse the issued identifier; revoked identifiers fail staff lookup. QR identifies a person and never independently authorizes payment.
 7. Sign in as `owner`. Edit business settings or a membership plan. New public reads reflect saved changes; old receipts/term snapshots stay intact. Look up `CC-DEMO-MEMBER`. Assign roles only to an existing account; assignments revoke that account's sessions.
-8. Submit a website enquiry. Reception/owner sees the persisted lead and immediate front-desk notification count. Lead activities/conversion come in stage two.
+8. Submit a website enquiry. Reception/owner sees the saved lead and notification. Assign staff, add notes/follow-ups, save a plan quote and convert to a linked account. An invited account must reset its password and verify its email; conversion alone does not activate paid membership. Reception processes memberships using the reviewed plan/policy checkout.
 9. Sign up with a new email. Sign in as owner in another browser session, open Local test inbox, then open the verification link in the signup browser. Password reset works the same way. Run the worker to mark queued local mail delivered. The inbox is owner-only and disabled in SMTP mode.
 10. Try staff URLs as a member and another member's receipt URL. APIs reject restricted access; receipt pages show a not-found view and disclose no receipt data.
+11. In Reception, search an email/Champions ID or scan a QR, inspect the daily calendar, create a guest walk-in and confirm a manual payment. Check-in opens 30 minutes before the session and is single-use. Customer cancellation requires 12-hour notice; staff overrides require a reason.
+12. In POS, open a guest/member table, add item notes and submit. In Kitchen, accept → cook → ready; the cashier marks served. Additions create new tickets. Settle partially or fully with local test/cash/card/UPI and close only after preparation and settlement complete. Preparation and payment remain independent.
+13. Eligible members can run a tab within the configured limit; overdue charges block more credit. Finance shows charges, allocations, credits and refund status. Manual refunds remain pending until staff records the actual repayment with a reason.
 
 ## Architecture and contracts
 
 - `src/app`: App Router pages and HTTP endpoints.
-- `src/modules`: account, membership, shared billing, public read queries and durable mail services.
+- `src/modules`: account, membership, billing, bookings, shop, clubhouse, CRM, operations queries/dispatch, public reads and durable mail/job services.
 - `src/lib`: Prisma connection, Better Auth, server session/role guards, errors and client helpers.
 - `src/components/ui`: shadcn-style Radix/CVA primitives customized for both club themes; `components.json` is ready for additional shadcn components.
-- `prisma`: schema, idempotent demo seed and versioned SQL migration with PostgreSQL exclusion/check constraints.
+- `prisma`: schema, idempotent seed and three versioned migrations with exclusion/check constraints, quota/capacity triggers, calendar locks and immutable invoice guards.
 - `src/worker.ts`: separate durable-job process, transactional outbox, SKIP LOCKED claims, stale-lease recovery and retry backoff.
 
 See [API.md](API.md) for endpoint contracts and [SPEC.md](SPEC.md) for the full brief, assumptions and acceptance criteria. Money is integer paise; discounts round half-up once. Dates persist as UTC instants; the club timezone is Asia/Kolkata. Identity/role/ownership checks run server-side. Checkout and profile changes serialize per user; invoice origin and idempotency keys have unique constraints. An issued membership, invoice, payment allocation and checkout result commit together.
 
 ## Integration modes and LAN use
 
-`PAYMENT_MODE=local` enables **LOCAL_SIMULATED** payments and explicitly labelled test receipts. Every other value disables purchase with 503 until a verified gateway adapter is implemented. Cash/card/UPI recording, allocations for partial settlements and refunds have schema foundations; their workflow integrations are planned.
+`PAYMENT_MODE=local` enables **LOCAL_SIMULATED** payments and labelled test receipts; no funds move. Local online checkout is disabled with 503 in other modes until a gateway adapter is implemented. Authorized staff can record **MANUAL_RECORDED** cash/card/UPI payments and partial settlements. These records are not gateway confirmations. Local refunds are simulated/recorded; manual refunds are pending until staff records repayment. No current workflow creates a gateway-verified payment.
 
 `EMAIL_MODE=local` stores verification/reset messages in PostgreSQL. `EMAIL_MODE=smtp` uses Nodemailer and requires `SMTP_HOST`, `SMTP_PORT`, optional `SMTP_USER`/`SMTP_PASSWORD`, and `EMAIL_FROM`. SMTP was not configured or tested. Local mail processing resumes safely after a crash; real SMTP is at-least-once delivery and can duplicate an email if a process dies after provider acceptance but before saving delivery status. Provider deduplication is a stage-three integration.
 
-For LAN operation, change `BETTER_AUTH_URL` to the host's LAN origin and list all exact permitted origins in `TRUSTED_ORIGINS` (comma-separated), then restart. The app listens on 0.0.0.0; PostgreSQL remains loopback-only. Internet is unnecessary for club operations in local mode. Safe offline drafts and disconnected-device UX are scheduled for the later operational stages. Camera scanning is installed for stage two; browsers generally require HTTPS or localhost for camera access.
+For LAN operation, change `BETTER_AUTH_URL` to the host's LAN origin and list all exact permitted origins in `TRUSTED_ORIGINS` (comma-separated), then restart. The app listens on 0.0.0.0; PostgreSQL remains loopback-only. Internet is unnecessary for local operations. The cart persists a draft, but reservations/payments require the server. Broader disconnected-device UX remains planned. ZXing camera scanning requires HTTPS or localhost and camera permission; manual entry is available.
 
 ## Verification
 
@@ -93,12 +96,41 @@ npm run test:integration
 npm run build
 ```
 
-Actual results on 2026-10-03: TypeScript passed, ESLint passed, **4 unit tests + 12 real-PostgreSQL/HTTP integration tests passed**, and optimized Next.js production build passed. Integration tests cover authorization/ownership, cross-origin rejection, concurrent checkout replay and payload mismatch, competing purchase keys, contiguous renewal, plan-change history, Junior/profile eligibility, court overlap/stock constraints, QR reuse/revocation, privileged signup rejection, verification/reset/session revocation, stale-price rejection with original checkout replay, and worker failure/stale-lease/retry safety. Tests create uniquely named records and clean up only their own records; use a dedicated database in CI.
+Actual stage-two results on 2026-10-03: **4 unit tests + 30 real-PostgreSQL/HTTP integration tests passed**. TypeScript, ESLint and the optimized production build pass. Tests create uniquely named fixtures and clean up their own records; use a dedicated database in CI. The worker is paused during tests so it cannot claim fixture jobs.
 
-Browser verification: desktop navigation and sport selection; 390px mobile home/menu/account/checkout with no horizontal overflow; persistent Silver purchase and renewal, contiguous history, profile save/reload and printable receipt; owner login, member benefit lookup, settings save, plan edit/reload with immutable historical invoice, local inbox and saved website enquiry/front-desk notification verified. Plan prices were restored to demo defaults after verification. Saved screenshots are in .local/screenshots. A development-browser loading error was recovered in a fresh tab.
+All eight requested scenarios pass:
 
-GitHub Actions configuration is included; it has not been run remotely. The implementation is organized into seven feature commits following the original repository commit. Teammates should contribute through their own branches, commits and PRs and run these checks; no teammate contributions are fabricated.
+| Scenario | Verified outcome |
+|---|---|
+| Same court, simultaneous customers | Exactly one succeeds; direct overlapping SQL writes fail |
+| Concurrent daily limit | Excess service and direct SQL bookings fail; ordinary/social sessions share quota |
+| Final social place | Capacity respected; duplicate participants rejected; expiry/waiting recovery succeeds |
+| Final online/counter SKU | Exactly one reserves stock; failed carts roll back all reservations |
+| Identical checkout retries | One hold, one final payment/allocation; changed payload rejected |
+| Cross-account access | Read/receipt/mutation denied; staff role and origin restrictions verified over HTTP |
+| Expiry/cancel/return/refund | Correct stock/slots/charges adjusted once, including partial returns and delayed social jobs |
+| POS/kitchen/history/billing | Independent persisted states, notes/additions, partial payments, credits and receipts agree |
+
+Additional tests cover closure/reopening, FIFO offers, member benefit snapshots, tab limits, stale kitchen versions, delivery dispatch, CRM follow-up deduplication/conversion/reception memberships, immutable invoices and ledger balance guards. Existing foundation tests cover authentication, QR revocation, renewals, eligibility, stale prices and worker retry/lease recovery.
+
+Stage-two browser verification: landing trial checkout → confirmed account history → reception check-in; variant/cart/local checkout → counter collection → restocked return; CRM note/quote/account conversion; guest POS item note → kitchen accepted/cooking/ready → served → local settlement → closed table. Desktop and 390px customer/staff layouts were inspected without horizontal overflow. Saved proof is in `.local/screenshots`. Browser actions persist as explicitly simulated demonstration records. Camera hardware/permission and SMTP/gateway delivery were not tested.
+
+After the production build, `npm start` and the worker were restarted. `/api/health` returned `status: ok`, all three migrations were up to date, and a fresh production browser tab showed the saved served/paid/closed guest bill with ₹320 allocated and ₹0 outstanding, without browser console errors. The earlier development tab needed replacement after the server restart; no application change was needed.
+
+GitHub Actions configuration is included but has not run remotely. Git was left untouched during implementation, as requested; the user subsequently authorized publishing to main in three logical commits with the final commit two minutes after the UI commit. All three publishing commits use chris2006777@gmail.com as author and committer. The upstream Prisma/pg adapter emits a non-blocking concurrent-query deprecation warning during nested transactional reads; all assertions pass.
 
 ## Remaining stages
 
-Stage 2 connects scarce-resource booking/holds/check-in/social play/waiting lists, retail cart/inventory/fulfillment/returns and reception/CRM workflows. Stage 3 connects waiter/kitchen/POS/tabs, reconciliation/reports/HR/payroll, scheduled expiry reminders, verified payment integrations and exports. Full scope is retained in PLAN.md and SPEC.md.
+Stage three retains reconciliation/reports/HR/payroll, scheduled membership-expiry reminders, verified external payment integrations, exports and broader disconnected-device drafts. The stage-two operational workflows are complete. See PLAN.md and SPEC.md.
+
+## Operational policies
+
+Prices/benefits are calculated on the server and snapshotted. Court benefits use the session date; weekly complimentary sessions include active holds. Trial discount defaults to 50%; social participation to ₹300, delivery to ₹100 and member tabs to ₹5,000 due in seven days. The owner can edit these settings. Checkout rechecks membership identity before confirming a discounted hold.
+
+Pickup stock remains reserved until collection; delivery consumes stock at dispatch. Cancelling an unfulfilled order releases its reservation. Returns can restock usable goods or record damaged goods without restocking. Partial returns credit their historical line price cumulatively, with exact final totals; the delivery fee is retained. Invoice/line snapshots cannot be edited after issue. Allocations and credits are bounded under invoice locks.
+
+Customer cancellations respect the configured notice period; checked-in sessions require a reasoned staff override. Social cancellation credits participant invoices and releases the single court reservation. Waiting offers last 30 minutes by default, count toward quota and are confirmed through the usual checkout. Expiry and release jobs are durable and repeat-safe.
+
+POS additions retain notes and create a new ticket revision/invoice. Items may be cancelled before cooking; later financial adjustments require an authorized staff reason. Bar items require age 21+ from a member birth date or staff-attested guest eligibility. Tables close only when all remaining tickets are served/cancelled and invoices settled. Manual refund recording confirms staff repayment; it does not send money through a gateway.
+
+PostgreSQL connections explicitly use UTC, including the pg adapter, so a host configured for Asia/Kolkata cannot shift timestamptz values. UI display and booking day/week boundaries use Asia/Kolkata.

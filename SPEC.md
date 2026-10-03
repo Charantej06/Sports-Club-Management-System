@@ -265,3 +265,15 @@ Stage-one acceptance:
 - Durable local verification/reset delivery supports retries and stale-lease recovery; production SMTP/provider duplicate risk is documented.
 - Docker/env/CI files and setup/demo instructions exist. Actual host test results and unconfigured integrations are disclosed.
 - Desktop/mobile checks, validation, permissions, membership concurrency/idempotency/ownership and worker retry tests run before stage completion.
+
+## Stage-two scope update and acceptance (2026-10-03)
+
+The stage-two request supersedes the earlier stage-one-only instruction and includes reception/CRM, bookings/social/waiting, complete shop/inventory, waiter/POS/kitchen and shared partial settlement/credits/refunds. Preserve the approved black-and-orange customer theme and white staff theme. Git was left untouched during implementation. The subsequent publishing request authorizes three logical commits and a push to the existing main branch, with revised timing: commit three two minutes after commit two. All three publishing commits use chris2006777@gmail.com as author and committer.
+
+Operational defaults: trial discount 50%, social place ₹300, delivery fee ₹100, member tab due in seven days. Existing two-session daily quota, weekly complimentary benefits, five-minute holds, 30-minute waiting offers, 12-hour cancellation notice and ₹5,000 tab limit apply. Owner settings remain editable. Quote snapshots are estimates valid for seven days; membership processing reviews the current plan and policy.
+
+Reception can process a paid membership for an invited account, but online sign-in still requires email verification. Account conversion sends a password-reset/verification invitation; it never activates a membership by itself. Cash/card/UPI are authorized manual records. Local checkout/refunds are simulated; production gateway verification is still an external stage-three integration. Manual refunds require a pending-to-recorded staff confirmation after repayment.
+
+Database acceptance now includes exclusion-protected hourly court occupancy, closure/calendar serialization, direct-write concurrent daily quota and social-capacity enforcement, one social court reservation, duplicate participant prevention, shared online/counter stock locks, immutable invoice/line snapshots and bounded allocations/credits. Checkout and sensitive state changes are audited, authorized, idempotent and transactional. Worker jobs release/reoffer expired resources once.
+
+Stage-two verification must cover all eight user scenarios against real PostgreSQL: same-court races, daily-quota races, last social place, last SKU, identical checkout retries, cross-account denial, expiry/cancellation/return/refund resource adjustment, and consistent POS/kitchen/customer/billing persistence. Browser inspection covers desktop/mobile and complete representative operational journeys. Actual results and unconfigured camera/SMTP/gateway dependencies are recorded in README.md and PLAN.md. Reporting, reconciliation, HR/payroll, scheduled membership reminders and external gateways remain stage three.
