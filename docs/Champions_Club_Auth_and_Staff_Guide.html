@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Champions Club — Staff Desk Features & Auth Deep Dive</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  @page {
+    size: A4;
+    margin: 11mm 11mm 13mm 11mm;
+    @bottom-right {
+      content: "Page " counter(page);
+      font-size: 9.5px;
+      color: #94a3b8;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #1e2430;
+    background: #ffffff;
+    line-height: 1.5;
+    font-size: 12px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+  .force-page-break { page-break-before: always; break-before: page; }
+
+  /* Cover Banner */
+  .cover {
+    background: linear-gradient(135deg, #090a0d 0%, #151821 60%, #1e1914 100%);
+    color: #ffffff;
+    padding: 18px 22px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border: 1px solid #2d3139;
+  }
+
+  .cover-eyebrow {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #ff7836;
+    margin-bottom: 3px;
+  }
+
+  .cover h1 {
+    font-size: 19px;
+    font-weight: 800;
+    line-height: 1.25;
+    margin: 0 0 5px 0;
+    letter-spacing: -0.025em;
+    color: #ffffff;
+  }
+
+  .cover-subtitle {
+    font-size: 11px;
+    color: #c2c7d0;
+    margin: 0 0 8px 0;
+    line-height: 1.4;
+  }
+
+  .cover-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 9.5px;
+    color: #8b92a0;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    padding-top: 6px;
+  }
+
+  .cover-meta strong { color: #ffffff; }
+
+  h2 {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #0f172a;
+    border-bottom: 2px solid #ff6b2c;
+    padding-bottom: 3px;
+    margin-top: 12px;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+    page-break-after: avoid;
+  }
+
+  h3 {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 8px;
+    margin-bottom: 3px;
+    page-break-after: avoid;
+  }
+
+  p { margin: 0 0 5px 0; }
+
+  /* Feature Box */
+  .feature-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 9px;
+    page-break-inside: avoid;
+  }
+
+  .feature-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+  }
+
+  .feature-title {
+    font-weight: 700;
+    font-size: 12.5px;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .feature-badge {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .badge-owner { background: #ffedd5; color: #c2410c; border: 1px solid #fdba74; }
+  .badge-all { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+
+  .workflow-list {
+    margin: 4px 0;
+    padding-left: 16px;
+  }
+
+  .workflow-list li {
+    margin-bottom: 3px;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  /* Code Card */
+  .code-card {
+    background: #0b0f17;
+    border: 1px solid #1e2638;
+    border-radius: 5px;
+    margin: 5px 0 8px 0;
+    overflow: hidden;
+    page-break-inside: avoid;
+  }
+
+  .code-header {
+    background: #151b27;
+    color: #94a3b8;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 9.5px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-bottom: 1px solid #1e2638;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  pre {
+    margin: 0;
+    padding: 6px 10px;
+    color: #e2e8f0;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 9.5px;
+    line-height: 1.4;
+  }
+
+  code {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 10px;
+    background: #f1f3f7;
+    color: #c2410c;
+    padding: 1px 3.5px;
+    border-radius: 3px;
+    border: 1px solid #e2e6ec;
+  }
+
+  pre .keyword { color: #f472b6; font-weight: 600; }
+  pre .func { color: #60a5fa; }
+  pre .str { color: #34d399; }
+  pre .comment { color: #64748b; font-style: italic; }
+  pre .type { color: #fbbf24; }
+
+  /* Callouts */
+  .callout {
+    padding: 8px 12px;
+    border-radius: 5px;
+    margin: 6px 0;
+    font-size: 11px;
+    line-height: 1.45;
+    border-left: 3.5px solid #ff6b2c;
+    background: #fff7ed;
+    color: #9a3412;
+    page-break-inside: avoid;
+  }
+
+  .callout.info { border-left-color: #3b82f6; background: #eff6ff; color: #1e40af; }
+  .callout.success { border-left-color: #10b981; background: #ecfdf5; color: #065f46; }
+  .callout.warning { border-left-color: #f59e0b; background: #fffbeb; color: #92400e; }
+
+  .callout-title { font-weight: 700; font-size: 11px; margin-bottom: 2px; }
+
+  /* Grid */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 6px 0; }
+
+  .card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    padding: 7px 9px;
+    page-break-inside: avoid;
+  }
+
+  /* Screenshot container */
+  .screenshot-container {
+    display: flex;
+    gap: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px;
+    margin: 6px 0;
+    align-items: flex-start;
+    page-break-inside: avoid;
+  }
+
+  .screenshot-img-wrap {
+    flex: 0 0 115px;
+    background: #f1f5f9;
+    border-radius: 4px;
+    padding: 3px;
+    border: 1px solid #cbd5e1;
+    text-align: center;
+  }
+
+  .screenshot-img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 3px;
+    display: block;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 6px 0;
+    font-size: 10.5px;
+    page-break-inside: avoid;
+  }
+
+  th {
+    background: #f1f5f9;
+    color: #334155;
+    font-weight: 700;
+    text-align: left;
+    padding: 4px 6px;
+    border: 1px solid #cbd5e1;
+  }
+
+  td {
+    padding: 4px 6px;
+    border: 1px solid #e2e8f0;
+    vertical-align: top;
+  }
+
+  tr:nth-child(even) td { background: #f8fafc; }
+</style>
+</head>
+<body>
+
+  <!-- ==================== PAGE 1 ==================== -->
+  <div class="cover avoid-break">
+    <div class="cover-eyebrow">CHAMPIONS CLUB TECHNICAL & FEATURE GUIDE</div>
+    <h1>Staff Desk Workspaces, Better Auth & Member QR System</h1>
+    <div class="cover-subtitle">Detailed functional walkthrough of every Staff Desk feature from the navigation sidebar, how Better Auth operates under the hood, and how the cryptographic member QR cards are issued, rendered, and verified.</div>
+    <div class="cover-meta">
+      <div><strong>Monolith:</strong> Next.js 16 · React 19 · Prisma 7 · PostgreSQL</div>
+      <div><strong>Auth Engine:</strong> Better Auth (v1.7.7)</div>
+      <div><strong>QR Suite:</strong> qrcode + @zxing/browser</div>
+      <div><strong>Focus:</strong> Real-world Operations & Workflows</div>
+    </div>
+  </div>
+
+  <!-- SECTION: WHAT IS BETTER AUTH -->
+  <div class="avoid-break">
+    <h2>1. What is Better Auth & Why It's Used Here</h2>
+    <p><strong>Better Auth</strong> is a TypeScript-first, self-hosted authentication library for Next.js and Node.js. Unlike third-party cloud auth providers (Clerk, Auth0, Firebase), Better Auth runs <strong>100% inside this application</strong> and writes directly to our local PostgreSQL database using Prisma.</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <strong>❌ Cloud SaaS Auth (Clerk / Auth0)</strong>
+        <p style="font-size: 10px; margin: 2px 0 0 0;">Stores user records on external servers, requires monthly paid fees, adds 200ms+ network roundtrips, breaks relational joins with bookings/orders, and cannot run offline.</p>
+      </div>
+      <div class="card">
+        <strong>✅ Better Auth (Self-Hosted in Champions Club)</strong>
+        <p style="font-size: 10px; margin: 2px 0 0 0;">Zero monthly fees. All user accounts, sessions, password hashes, and rate-limits live directly inside PostgreSQL tables. Works offline with zero third-party dependencies.</p>
+      </div>
+    </div>
+
+    <h3>The 5 Database Tables Better Auth Controls</h3>
+    <div class="grid-3">
+      <div class="card">
+        <strong>1. <code>User</code></strong>
+        <p style="font-size: 10px; color:#475569; margin: 2px 0 0 0;">Stores identity: name, email, role (MEMBER, CASHIER, etc.), Champions ID (CC-XXXXX), and emailVerified status.</p>
+      </div>
+      <div class="card">
+        <strong>2. <code>Session</code></strong>
+        <p style="font-size: 10px; color:#475569; margin: 2px 0 0 0;">Active browser sessions (token, userId, expiresAt, ipAddress) linked to an <code>httpOnly</code> cookie.</p>
+      </div>
+      <div class="card">
+        <strong>3. <code>Account</code></strong>
+        <p style="font-size: 10px; color:#475569; margin: 2px 0 0 0;">Stores password hashes (argon2/scrypt). Kept isolated from profile information.</p>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top: 4px;">
+      <div class="card">
+        <strong>4. <code>Verification</code></strong>
+        <p style="font-size: 10px; color:#475569; margin: 2px 0 0 0;">Transient 1-hour cryptographic tokens for email verification links and password resets.</p>
+      </div>
+      <div class="card">
+        <strong>5. <code>RateLimit</code></strong>
+        <p style="font-size: 10px; color:#475569; margin: 2px 0 0 0;">Database-backed sliding window counters (5 signups/min, 10 signins/min) stopping brute-force attacks without Redis.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: HOW AUTH WORKS -->
+  <div class="avoid-break" style="margin-top: 8px;">
+    <h2>2. Authentication & The "Dual Guard" Rule</h2>
+    <p>When a user registers or logs in, how does the system prevent privilege escalation and enforce immediate role changes?</p>
+
+    <div class="callout success">
+      <div class="callout-title">🛡️ Security Invariant: Zero Privilege Escalation at Signup</div>
+      In <code>src/lib/auth.ts</code>, both <code>role</code> and <code>championsId</code> have <code>input: false</code>. A transactional database hook forces every public signup to <code>role = "MEMBER"</code> and generates a random Champions ID (e.g. <code>CC-4A92F1</code>). Even if an attacker injects <code>{ "role": "OWNER" }</code> into the HTTP payload, it is rejected by Better Auth.
+    </div>
+
+    <p><strong>The Dual Guard (<code>src/lib/access.ts</code>):</strong> Most apps trust a session cookie or JWT for 7 days. But what if the Owner demotes an employee from <code>RECEPTION</code> to <code>MEMBER</code>? A cached cookie would let them keep snooping on bookings! Champions Club uses a 2-step verification on every request:</p>
+    <ol style="padding-left: 16px; margin: 3px 0; font-size: 11px;">
+      <li>Better Auth validates the cryptographic session cookie token.</li>
+      <li><strong>Immediate Database Lookup:</strong> The server re-reads the fresh <code>User</code> row directly from PostgreSQL. If the role was changed or revoked, access is denied <strong>instantaneously</strong> on that exact HTTP request!</li>
+    </ol>
+  </div>
+
+  <!-- ==================== PAGE 2 ==================== -->
+  <div class="force-page-break"></div>
+
+  <!-- SECTION: DETAILED BREAKDOWN OF THE SCREENSHOT -->
+  <div class="avoid-break">
+    <h2>3. Deep Dive into the Staff Workspace (Your Screenshot)</h2>
+    <p>The screenshot you shared shows the <strong>Owner Navigation Sidebar</strong> in <code>src/components/staff-desk.tsx</code>. When a user with the <code>OWNER</code> role logs in and visits <code>/staff</code>, they have complete operational control over these 6 core functions:</p>
+
+    <div class="screenshot-container">
+      <div class="screenshot-img-wrap">
+        <img src="data:image/png;base64,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" alt="Staff Sidebar" class="screenshot-img" />
+        <div style="font-size: 8.5px; color:#64748b; margin-top: 2px; font-weight:600;">Staff Sidebar UI</div>
+      </div>
+      <div class="screenshot-details">
+        <p style="margin:0 0 3px 0; font-size:11px; font-weight:700; color:#0f172a;">Menu Items in Screenshot:</p>
+        <ul class="workflow-list" style="margin:0; padding-left:14px;">
+          <li><strong>📋 Club desk:</strong> The main operations dashboard showing live counters and actionable tasks.</li>
+          <li><strong>[ ] Member lookup:</strong> Identity station for scanning QR cards or searching by Champions ID / email.</li>
+          <li><strong>⚙ Business settings:</strong> Owner configuration for operating hours, booking windows, and tab limits.</li>
+          <li><strong>👥 Membership plans:</strong> Plan designer for prices (in paise), terms, and discount basis points.</li>
+          <li><strong>👥 Staff access:</strong> Role management panel for promoting staff and revoking active sessions.</li>
+          <li><strong>✉ Local test inbox:</strong> In-browser email viewer for offline verification links & password resets.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- FEATURE 1: CLUB DESK -->
+    <div class="feature-box">
+      <div class="feature-header">
+        <span class="feature-title">1. 📋 Club Desk (Tab: <code>id: "today"</code>) — Active Tab</span>
+        <span class="feature-badge badge-all">All Staff & Owner</span>
+      </div>
+      <p><strong>What it is:</strong> The front-line operational cockpit that staff see the moment they open the app.</p>
+      <p><strong>What it does on screen:</strong></p>
+      <ul class="workflow-list">
+        <li><strong>Live Action Badges:</strong> Queries <code>GET /api/staff/home</code> every 5 seconds to display large metric cards:
+          <em>"Today's Court Bookings: 8"</em>, <em>"Unread CRM Enquiries: 3"</em>, <em>"Low Stock Inventory Items: 2"</em>, <em>"Open Kitchen Tickets: 4"</em>, and <em>"Active Cash Shift: OPEN"</em>.
+        </li>
+        <li><strong>One-Click Workflow Navigation:</strong> Clicking any metric card immediately switches the view to that specific workspace. For example, clicking "3 Unread Enquiries" instantly opens the CRM desk so reception can respond to the customer.</li>
+        <li><strong>Role Banner:</strong> Displays the logged-in staff member's name and role badge (e.g. <em>"Hello, Arjun. Reception workspace"</em>).</li>
+      </ul>
+    </div>
+
+    <!-- FEATURE 2: MEMBER LOOKUP -->
+    <div class="feature-box">
+      <div class="feature-header">
+        <span class="feature-title">2. [ ] Member Lookup (Tab: <code>id: "lookup"</code>)</span>
+        <span class="feature-badge badge-all">Reception, Cashiers, Owner</span>
+      </div>
+      <p><strong>What it is:</strong> The customer identification station used at Reception, Pro Shop, and Clubhouse dining.</p>
+      <p><strong>Real-World Workflow:</strong></p>
+      <ul class="workflow-list">
+        <li><strong>Scenario:</strong> A customer walks up to the tennis desk to check in or arrives at the clubhouse restaurant table.</li>
+        <li><strong>Camera QR Scan:</strong> Staff clicks <strong>"Scan QR camera"</strong>. The device webcam activates. The customer holds up their phone displaying their digital QR card from <code>/account</code>. The camera decodes the QR token in under 200 milliseconds.</li>
+        <li><strong>Manual Fallback:</strong> If the customer doesn't have their phone, staff can type their <strong>Champions ID</strong> (e.g., <code>CC-4A92F1</code>) or registered <strong>email address</strong>.</li>
+        <li><strong>Output Shown to Staff:</strong> The system displays the member's full name, Champions ID, active membership tier (e.g. <em>"Gold Plan · 25% court, 15% shop, 10% clubhouse discount"</em>), and the plan expiration date.</li>
+        <li><strong>Security Rule:</strong> It verifies identity and eligibility; it <strong>never automatically debits money</strong> or exposes passwords.</li>
+      </ul>
+    </div>
+
+    <!-- FEATURE 3: BUSINESS SETTINGS -->
+    <div class="feature-box">
+      <div class="feature-header">
+        <span class="feature-title">3. ⚙ Business Settings (Tab: <code>id: "settings"</code>)</span>
+        <span class="feature-badge badge-owner">Owner Exclusive</span>
+      </div>
+      <p><strong>What it is:</strong> The owner's policy control room where club operating rules are established and stored in the <code>ClubSettings</code> table.</p>
+      <p><strong>Key Rules Controlled by the Owner:</strong></p>
+      <ul class="workflow-list">
+        <li><strong>Club Hours:</strong> Opening (e.g. <code>06:00</code>) and Closing hour (e.g. <code>23:00</code> Asia/Kolkata). Courts cannot be booked outside these hours.</li>
+        <li><strong>Booking Window (Days):</strong> (Default: <code>14</code> days). Members cannot reserve slots months in advance, preventing slot hoarding.</li>
+        <li><strong>Daily Session Limit:</strong> (Default: <code>2</code> sessions). Prevents a single player from booking 5 hours of courts in a single day.</li>
+        <li><strong>Checkout Hold Duration:</strong> (Default: <code>5</code> minutes). When a player clicks "Book", the court is locked for 5 minutes. If they abandon checkout or close their laptop, the database worker automatically releases the slot for other members.</li>
+        <li><strong>Cancellation Notice Hours:</strong> (Default: <code>12</code> hours). Customers must cancel at least 12 hours before game time to receive a refund/credit. Cancellations inside 12 hours require staff override with a recorded reason.</li>
+        <li><strong>Member Bar Tab Limit:</strong> (Default: <code>₹5,000</code> / 500,000 paise). The maximum credit a member can run up at the restaurant/bar before their account is blocked from further credit.</li>
+        <li><strong>Automated Reminder Schedule:</strong> (Default: <code>7, 1, 0</code> days). The background worker automatically schedules expiry reminder emails 7 days before, 1 day before, and on the day a membership expires at 09:00 AM.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 3 ==================== -->
+  <div class="force-page-break"></div>
+
+  <div class="avoid-break">
+    <!-- FEATURE 4: MEMBERSHIP PLANS -->
+    <div class="feature-box">
+      <div class="feature-header">
+        <span class="feature-title">4. 👥 Membership Plans (Tab: <code>id: "plans"</code>)</span>
+        <span class="feature-badge badge-owner">Owner Exclusive</span>
+      </div>
+      <p><strong>What it is:</strong> The product catalog designer where the owner builds and modifies membership packages (Standard, Gold, Junior).</p>
+      <p><strong>What the Owner Configures:</strong></p>
+      <ul class="workflow-list">
+        <li><strong>Plan Price in Integer Paise:</strong> Stored as integers to prevent rounding bugs (e.g. ₹12,000 is stored as <code>1200000</code>).</li>
+        <li><strong>Term Duration:</strong> Number of days the membership lasts (e.g. <code>365</code> days for annual, <code>30</code> days for monthly).</li>
+        <li><strong>Discounts in Basis Points:</strong> 100 basis points = 1%. For example, setting <code>courtDiscountBps = 2500</code> grants a <strong>25% discount</strong> on all court reservations.</li>
+        <li><strong>Clubhouse & Shop Discounts:</strong> Separate discount percentages for restaurant dining and pro shop merchandise.</li>
+        <li><strong>Free Weekly Court Quotas:</strong> Complimentary court hours granted to premium tiers (e.g. Gold members receive 1 free session per week).</li>
+        <li><strong>Plan Versioning & Immutability:</strong> If the owner raises Gold membership from ₹12,000 to ₹15,000, <strong>existing members are not affected</strong>. Past invoices and purchased memberships retain their historical price snapshot forever. The new price receives a fresh <code>planVersion</code> timestamp.</li>
+      </ul>
+    </div>
+
+    <!-- FEATURE 5: STAFF ACCESS -->
+    <div class="feature-box">
+      <div class="feature-header">
+        <span class="feature-title">5. 👥 Staff Access (Tab: <code>id: "users"</code>)</span>
+        <span class="feature-badge badge-owner">Owner Exclusive</span>
+      </div>
+      <p><strong>What it is:</strong> The owner's employee onboarding and Role-Based Access Control (RBAC) portal.</p>
+      <p><strong>How an Employee is Granted Staff Access:</strong></p>
+      <ol class="workflow-list">
+        <li>The employee registers a regular account on <code>/signup</code> with their email address.</li>
+        <li>The Owner opens <strong>Staff access</strong>, types the employee's email, and chooses their role from the dropdown:
+          <div style="margin: 4px 0;">
+            <span class="feature-badge badge-all" style="margin-right: 4px;">RECEPTION</span> Court calendar, check-ins, CRM lead quotes, member lookup.<br>
+            <span class="feature-badge badge-all" style="margin-right: 4px;">CASHIER</span> Waiter POS tables, shop counter checkout, cash reconciliation.<br>
+            <span class="feature-badge badge-all" style="margin-right: 4px;">KITCHEN</span> Kitchen Display System (KDS), cooking queue, marking tickets ready.<br>
+            <span class="feature-badge badge-owner" style="margin-right: 4px;">OWNER</span> Unrestricted master access to payroll, finance, settings, and reports.
+          </div>
+        </li>
+        <li><strong>Instant Session Revocation:</strong> The moment the owner clicks <em>"Assign role"</em>, the server updates the database AND runs:
+          <code>await tx.session.deleteMany({ where: { userId: user.id } })</code>.
+          This terminates all active sessions across all devices for that employee, forcing them to sign in again with their new staff permissions.
+        </li>
+      </ol>
+    </div>
+
+    <!-- FEATURE 6: LOCAL TEST INBOX -->
+    <div class="feature-box">
+      <div class="feature-header">
+        <span class="feature-title">6. ✉ Local Test Inbox (Tab: <code>id: "inbox"</code>)</span>
+        <span class="feature-badge badge-owner">Owner Exclusive (Local Mode)</span>
+      </div>
+      <p><strong>What it is:</strong> An embedded, in-browser email client built specifically for local development, hackathons, and offline testing.</p>
+      <p><strong>Why it exists & how to use it:</strong></p>
+      <ul class="workflow-list">
+        <li>Real SMTP providers (SendGrid, AWS SES) require credit cards, domain verification, and an internet connection.</li>
+        <li>When running locally (<code>EMAIL_MODE=local</code>), the server intercepts all outgoing emails (signup verification, password reset links, membership expiry notices) and writes them to PostgreSQL's <code>MailMessage</code> table.</li>
+        <li>Staff/Developers simply open this tab to see outgoing emails in real-time.</li>
+        <li>Inside the email body is a blue link: <strong>"Open secure local link ↗"</strong>. Clicking it verifies your test account or resets your password immediately with zero external dependencies!</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 4 ==================== -->
+  <div class="force-page-break"></div>
+
+  <!-- SECTION: HOW QR IS MADE AND SCANNED -->
+  <div class="avoid-break">
+    <h2>4. How the Member QR Card is Made (Generation)</h2>
+    <p>Every active member receives a digital membership card on their <code>/account</code> dashboard (generated in <code>src/modules/account/cards.ts</code>).</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <strong>Step 1: Opaque Cryptographic Token</strong>
+        <p style="font-size: 10.5px; margin: 3px 0 0 0;">The server checks that the user has an active membership, then generates a 48-character random hex token:</p>
+        <pre><span class="keyword">const</span> token = <span class="func">randomBytes</span>(24).<span class="func">toString</span>(<span class="str">"hex"</span>);
+<span class="keyword">await</span> tx.memberCard.<span class="func">upsert</span>({
+  where: { userId },
+  create: { userId, token },
+  update: { token, revokedAt: <span class="keyword">null</span>, issuedAt: now }
+});</pre>
+      </div>
+
+      <div class="card">
+        <strong>Step 2: Base64 PNG Rendering</strong>
+        <p style="font-size: 10.5px; margin: 3px 0 0 0;">The payload <code>champions:card:&lt;token&gt;</code> is converted into a PNG data URL using the <code>qrcode</code> package:</p>
+        <pre><span class="keyword">const</span> qr = <span class="keyword">await</span> QRCode.<span class="func">toDataURL</span>(
+  <span class="str">`champions:card:${card.token}`</span>,
+  { width: 240, margin: 2, errorCorrectionLevel: <span class="str">"M"</span> }
+);</pre>
+      </div>
+    </div>
+
+    <div class="callout warning">
+      <div class="callout-title">🔒 The Opaque Token Principle (Zero Personal Data in QR)</div>
+      The QR matrix <strong>never contains the member's name, email, phone number, balance, or discounts</strong>. If someone takes a photo of the card, they acquire zero credentials. Members can click <strong>"Revoke card"</strong> anytime on <code>/account</code> to invalidate the token immediately.
+    </div>
+  </div>
+
+  <div class="avoid-break" style="margin-top: 10px;">
+    <h2>5. How the Member QR Card is Read & Verified</h2>
+    <p>Scanning is handled by staff via <code>MemberFinder</code> in <code>src/components/staff-operations.tsx</code>.</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <strong>📷 1. Live Camera Stream (@zxing/browser)</strong>
+        <p style="font-size: 10.5px; margin: 3px 0 0 0;">Accesses the webcam via WebRTC. Zebra Crossing decodes video frames continuously:</p>
+        <pre><span class="keyword">const</span> reader = <span class="keyword">new</span> <span class="type">BrowserQRCodeReader</span>();
+<span class="keyword">await</span> reader.<span class="func">decodeFromVideoDevice</span>(
+  <span class="keyword">undefined</span>, videoRef, (res, err, controls) =&gt; {
+    <span class="keyword">if</span> (res) {
+      controls.<span class="func">stop</span>(); <span class="comment">// Stop camera once read</span>
+      <span class="func">lookupMemberApi</span>(res.<span class="func">getText</span>());
+    }
+  }
+);</pre>
+      </div>
+
+      <div class="card">
+        <strong>🔍 2. Database Resolution (/api/staff/lookup)</strong>
+        <p style="font-size: 10.5px; margin: 3px 0 0 0;">The server validates the token and confirms that <code>revokedAt</code> is null:</p>
+        <pre><span class="keyword">const</span> token = query.<span class="func">slice</span>(15);
+<span class="keyword">const</span> card = <span class="keyword">await</span> db.memberCard.<span class="func">findUnique</span>({
+  where: { token }, include: { user: <span class="keyword">true</span> }
+});
+<span class="keyword">if</span> (!card || card.revokedAt) <span class="keyword">throw new</span> <span class="type">AppError</span>(404, <span class="str">"CARD_INVALID"</span>);
+<span class="keyword">const</span> membership = <span class="keyword">await</span> <span class="func">currentMembership</span>(card.userId);
+<span class="keyword">return</span> { name: card.user.name, membership };</pre>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-title">⚠️ Identification ≠ Payment Authority</div>
+      In poorly designed club systems, scanning a QR card automatically charges the user or opens an unlimited bar tab. In Champions Club, <strong>a QR scan ONLY identifies who the player is and which membership tier they hold</strong>. Any financial transaction (paying an invoice, recording a cash/UPI payment, court booking) requires a separate, explicit payment authorization flow.
+    </div>
+  </div>
+
+  <!-- SECTION: SUMMARY CHEATSHEET -->
+  <div class="avoid-break" style="margin-top: 10px;">
+    <h2>6. Summary Reference Table for Frontend Work</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Subsystem</th>
+          <th>Component File</th>
+          <th>What You Need to Know When Editing Frontend</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Auth Client</strong></td>
+          <td><code>src/lib/auth-client.ts</code></td>
+          <td>Call <code>authClient.signIn.email()</code>, <code>authClient.signOut()</code>, or <code>authClient.useSession()</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Staff Desk UI</strong></td>
+          <td><code>src/components/staff-desk.tsx</code></td>
+          <td>Tabs filter dynamically by <code>user.role</code>. Only <code>OWNER</code> sees Settings, Plans, Access, and Inbox.</td>
+        </tr>
+        <tr>
+          <td><strong>QR Display</strong></td>
+          <td><code>src/components/account.tsx</code></td>
+          <td>Renders base64 data URL returned by <code>GET /api/me/card</code> inside the member card view.</td>
+        </tr>
+        <tr>
+          <td><strong>QR Camera</strong></td>
+          <td><code>src/components/staff-operations.tsx</code></td>
+          <td><code>MemberFinder</code> manages webcam stream, ZXing barcode decoding, and API lookup.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</body>
+</html>

@@ -150,11 +150,13 @@ export function MemberFinder({
   useEffect(() => () => controls.current?.stop(), []);
   return (
     <div className="space-y-4">
-      <form
+      <div
         className="flex flex-wrap items-end gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void lookup(query);
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            void lookup(query);
+          }
         }}
       >
         <div className="grow">
@@ -164,7 +166,9 @@ export function MemberFinder({
             onChange={setQuery}
           />
         </div>
-        <Button>Find member</Button>
+        <Button type="button" onClick={() => void lookup(query)}>
+          Find member
+        </Button>
         <Button
           type="button"
           variant="outline"
@@ -200,7 +204,7 @@ export function MemberFinder({
         >
           {scanning ? "Stop camera" : "Scan QR camera"}
         </Button>
-      </form>
+      </div>
       {scanning && (
         <video
           className="max-h-64 w-full rounded bg-black"
@@ -341,6 +345,14 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
       )}
       <div className="surface">
         <h3 className="font-semibold">One-hour walk-in / phone booking</h3>
+        <div className="mt-5">
+          <Subject
+            member={member}
+            setMember={setMember}
+            guest={guest}
+            setGuest={setGuest}
+          />
+        </div>
         <form
           className="mt-5 space-y-4"
           onSubmit={(e) => {
@@ -360,12 +372,6 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
             );
           }}
         >
-          <Subject
-            member={member}
-            setMember={setMember}
-            guest={guest}
-            setGuest={setGuest}
-          />
           <div className="grid gap-4 sm:grid-cols-2">
             <label>
               Court

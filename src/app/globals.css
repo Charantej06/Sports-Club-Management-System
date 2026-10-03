@@ -56,7 +56,7 @@ label { font-size: 13px; font-weight: 500; }
 .section-title { font-size: clamp(36px, 4.3vw, 64px); line-height: 1.06; letter-spacing: -.055em; font-weight: 500; }
 .chapter { padding-block: 128px; }
 .soft-text { color: #a4a4a1; line-height: 1.7; }
-.booking-page { --background: #f2eee8; --foreground: #1e1b17; --secondary: #1e1b17; --secondary-foreground: #fff; --muted: #e7dfd5; --muted-foreground: #625d55; --border: #d9d1c7; background: #f2eee8; color: #1e1b17; }
+.booking-page { --background: #ffffff; --foreground: #111827; --secondary: #111827; --secondary-foreground: #ffffff; --muted: #f3f4f6; --muted-foreground: #6b7280; --border: #e5e7eb; background: #ffffff; color: #111827; }
 .booking-hero { --foreground: #fff; --border: #ffffff8c; --muted: #ffffff26; position: relative; min-height: calc(100svh - 88px); overflow: hidden; background: #17120f; }
 .booking-hero-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
 .booking-hero-scrim { position: absolute; inset: 0; background: linear-gradient(90deg, #120b08e6 5%, #120b08a8 56%, #120b084d), linear-gradient(0deg, #120b088c, transparent 55%); }
@@ -64,36 +64,7 @@ label { font-size: 13px; font-weight: 500; }
 .booking-hero .booking-lead { color: #fff0e7; font-size: 16px; line-height: 1.6; }
 .booking-hero .border-input, .booking-hero button[data-slot="button"] { border-color: #ffffff8c; color: white; background: #0f0907a6; }
 .booking-hero .border-input:hover, .booking-hero button[data-slot="button"]:hover { border-color: #ff8b54; background: #ff6b2c; color: #1e110a; }
-.booking-content { padding-top: 56px; padding-bottom: 88px; }
-.booking-sport-selection { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 54px; border-bottom: 1px solid #d9d1c7; padding-bottom: 28px; }
-.booking-sport-selection h2 { margin-top: 10px; color: #1e1b17; font-size: clamp(28px, 3.2vw, 42px); font-weight: 550; letter-spacing: -.055em; line-height: 1; }
-.booking-sport-button { border-color: #d9d1c7 !important; background: #fffdf9 !important; color: #1e1b17 !important; box-shadow: none !important; }
-.booking-sport-button[aria-pressed="true"] { border-color: #1e1b17 !important; background: #1e1b17 !important; color: #fff !important; }
-.booking-sport-button:hover { border-color: #1e1b17 !important; background: #eee8df !important; color: #1e1b17 !important; }
-.booking-sport-button[aria-pressed="true"]:hover { background: #33302c !important; color: #fff !important; }
-.booking-sport-summary { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 36px; align-items: center; padding: 16px; border-radius: 24px; background: #fffdf9; box-shadow: 0 16px 42px #2f201210; }
-.booking-sport-copy { padding: 18px 24px; }
-.booking-notice { margin-top: 24px; max-width: 850px; border-left: 3px solid #f26b30; padding: 4px 0 4px 16px; color: #625d55; font-size: 13px; line-height: 1.65; }
-.booking-court { overflow: hidden; border: 1px solid #d9d1c7; border-radius: 18px; background: #fffdf9; transition: border-color .25s, box-shadow .25s; }
-.booking-court.is-expanded { border-color: #5f5951; box-shadow: 0 14px 34px #39241414; }
-.booking-court-trigger { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 18px; padding: 23px 26px; background: transparent; color: #1e1b17; text-align: left; }
-.booking-court-type { display: block; margin-bottom: 7px; color: #6b655d; font-size: 10px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
-.booking-court-trigger h3 { font-size: 21px; font-weight: 600; letter-spacing: -.03em; }
-.booking-court-trigger p { margin-top: 5px; color: #6b655d; font-size: 12px; }
-.booking-court-cta { display: inline-flex; align-items: center; gap: 10px; color: #1e1b17; font-size: 13px; font-weight: 650; white-space: nowrap; }
-.booking-court.is-expanded .booking-court-cta span { transform: rotate(180deg); }
-.booking-court-cta span { font-size: 17px; transition: transform .25s; }
-.booking-court-details { border-top: 1px solid #e6ded4; padding: 25px 26px 28px; background: #fbf7f1; }
-.booking-date-row { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; }
-.booking-date-row label { color: #4d4842; }
-.booking-date-input { max-width: 220px; border-color: #d9d1c7; background: #fffdf9; color: #1e1b17; color-scheme: light; }
-.booking-slot { min-height: 52px; border: 1px solid #e0d8cf; border-radius: 9px; background: #f0ebe4; color: #8b847b; padding: 8px; text-align: center; font-size: 12px; transition: background .2s, border-color .2s, color .2s; }
-.booking-slot.is-available { border-color: #bcb4aa; background: #fffdf9; color: #1e1b17; }
-.booking-slot.is-available:hover { border-color: #1e1b17; background: #1e1b17; color: #fff; }
-.booking-social { border-top: 1px solid #d9d1c7; padding-top: 48px; }
-.booking-social-card { border: 1px solid #d9d1c7; border-radius: 16px; background: #fffdf9; padding: 25px; color: #1e1b17; }
-.booking-social-card button { background: #1e1b17; color: #fff; }
-.booking-social-card button:hover { background: #33302c; }
+.checkout-hold-card { position: relative; border-radius: 12px; border: 1px solid #e5e7eb; background: #ffffff; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }
 .landing-hero { position: relative; min-height: min(760px, calc(100svh - 88px)); min-height: clamp(590px, calc(100svh - 88px), 820px); overflow: hidden; background: #101010; isolation: isolate; }
 .hero-panels { position: absolute; inset: 0; display: flex; gap: 3px; }
 .hero-panel { position: relative; min-width: 0; flex: 1 1 25%; overflow: hidden; background-size: cover; background-position: center; transition: flex .65s cubic-bezier(.22,.8,.25,1); }
@@ -143,10 +114,13 @@ label { font-size: 13px; font-weight: 500; }
 .image-card { position: relative; overflow: hidden; border-radius: 4px; }
 .image-card img { object-fit: cover; transition: transform .7s ease-out; }
 .image-card:hover img { transform: scale(1.05); }
-.image-card::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(transparent 35%, #000c); }
-.image-card .caption { position: absolute; inset-inline: 26px; bottom: 24px; z-index: 2; }
-.plan-card { border: 1px solid #ffffff20; background: linear-gradient(135deg, #171717, #111); border-radius: 6px; padding: 32px; }
-.plan-card.gold { border-color: #ff6b2c; background: radial-gradient(ellipse at top right, #ff6b2c18, transparent 70%), #141414; }
+.image-card::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, transparent 20%, rgba(0, 0, 0, 0.45) 55%, rgba(0, 0, 0, 0.88) 100%); }
+.image-card .caption { position: absolute; inset-inline: 26px; bottom: 24px; z-index: 2; color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8), 0 1px 3px rgba(0, 0, 0, 0.9); }
+.image-card .caption h1, .image-card .caption h2, .image-card .caption h3, .image-card .caption h4, .image-card .caption p { color: #fff !important; }
+.plan-card { position: relative; border: 1px solid rgba(255, 255, 255, 0.14); background: linear-gradient(135deg, rgba(20, 20, 20, 0.82), rgba(12, 12, 12, 0.92)); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-radius: 14px; padding: 32px; box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.5); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.35s ease, box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.35s ease; will-change: transform, box-shadow; }
+.plan-card:hover { transform: translateY(-8px) scale(1.012); border-color: rgba(255, 107, 44, 0.45); background: linear-gradient(135deg, rgba(28, 28, 28, 0.88), rgba(16, 16, 16, 0.96)); box-shadow: 0 26px 54px -12px rgba(0, 0, 0, 0.75), 0 0 28px -6px rgba(255, 107, 44, 0.2); }
+.plan-card.gold { border-color: rgba(255, 107, 44, 0.6); background: radial-gradient(ellipse at top right, rgba(255, 107, 44, 0.2), transparent 70%), rgba(20, 18, 16, 0.9); box-shadow: 0 16px 38px -10px rgba(255, 107, 44, 0.22), 0 12px 30px -8px rgba(0, 0, 0, 0.5); }
+.plan-card.gold:hover { transform: translateY(-8px) scale(1.018); border-color: #ff6b2c; background: radial-gradient(ellipse at top right, rgba(255, 107, 44, 0.28), transparent 70%), rgba(24, 20, 17, 0.94); box-shadow: 0 30px 60px -12px rgba(255, 107, 44, 0.38), 0 0 36px -4px rgba(255, 107, 44, 0.35); }
 .field-error { color: #fb8d80; font-size: 12px; margin-top: 6px; }
 .notice { border: 1px solid #ff6b2c45; background: #ff6b2c0b; padding: 16px 20px; border-radius: 6px; color: #ffb18d; font-size: 13px; line-height: 1.6; }
 .staff-theme { --background: #f1f3f6; --foreground: #202735; --secondary: #202735; --secondary-foreground: #fff; --muted: #e6e9ee; --muted-foreground: #626d7c; --border: #d5dae1; color: var(--foreground); background: var(--background); }
