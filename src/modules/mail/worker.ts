@@ -95,6 +95,7 @@ export async function processNextJob() {
                 to: message.to,
                 subject: message.subject,
                 text: message.body,
+                ...(message.html ? { html: message.html } : {}),
                 messageId: `<${message.id}@${senderDomain()}>`,
               });
             } else if (message.mode !== "local")

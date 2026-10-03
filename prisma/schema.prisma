@@ -296,6 +296,7 @@ model MailMessage {
   to        String
   subject   String
   body      String
+  html      String?
   mode      String
   membershipId String?
   status    String @default("QUEUED")
@@ -303,6 +304,7 @@ model MailMessage {
   createdAt DateTime @default(now())
   @@index([createdAt])
 }
+
 
 // Stage 2 foundation. The exclusion constraint lives in the SQL migration.
 model Sport {

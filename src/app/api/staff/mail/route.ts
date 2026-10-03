@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { jsonBody, route, sameOrigin } from "@/lib/errors";
 import { queueMail } from "@/modules/mail/service";
 import { createMailTransport, describeMailError, mailSettings } from "@/modules/mail/transport";
+import { testDeliveryEmail } from "@/modules/mail/templates";
 
 // Owner-only email health: shows how mail is configured (never the password), tests the SMTP
 // connection and queues a test message through the same durable worker used for real emails.
@@ -27,6 +28,7 @@ export const POST = route(async (request) => {
       return Response.json({ data: { ok: false, message: describeMailError(error) } });
     }
   }
-  await queueMail(user.email, "Champions Club test email", `Hello ${user.name},\n\nThis is a test message from the Champions Club owner workspace. If you can read it in your inbox, email delivery is working.\n\nSent ${new Date().toISOString()}.`);
+  const tpl = testDeliveryEmail(user.name);
+  await queueMail(user.email, tpl.subject, tpl.text, tpl.html);
   return Response.json({ data: { ok: true, message: settings.mode === "smtp" ? `Test email queued for ${user.email}. The worker sends it within a few seconds; check the delivery list below if it does not arrive.` : "Test email stored in the Local test inbox." } });
 });
