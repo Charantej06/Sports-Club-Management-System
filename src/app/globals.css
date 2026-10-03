@@ -26,7 +26,7 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 a, button { touch-action: manipulation; }
 a:focus-visible, button:focus-visible { outline: 2px solid #ff6b2c; outline-offset: 5px; }
-select, textarea { background: var(--background); color: var(--foreground); border: 1px solid var(--border); border-radius: 6px; padding: 12px; width: 100%; }
+select, textarea { background: var(--background); color: var(--foreground); border: 1px solid var(--border); border-radius: 6px; padding: 12px; width: 100%; max-width: 100%; min-width: 0; }
 label { font-size: 13px; font-weight: 500; }
 .site-width { width: min(100% - 96px, 1400px); margin-inline: auto; }
 .site-header { position: sticky; top: 0; z-index: 40; background: #0b0b0bf2; backdrop-filter: blur(18px); border-bottom: 1px solid #ffffff14; }
