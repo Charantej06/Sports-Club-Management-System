@@ -1,0 +1,4 @@
+import Image from "next/image";
+export function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  return <section className="site-width grid min-h-[75vh] gap-14 py-14 lg:grid-cols-2 lg:py-20"><div className="relative hidden min-h-[540px] overflow-hidden rounded lg:block"><Image src="/images/tennis.jpg" alt="A place for your next game" fill loading="eager" sizes="50vw" className="object-cover"/><div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent"/><div className="absolute bottom-12 left-10 right-10"><p className="eyebrow mb-5 text-orange-400">Your next chapter</p><h2 className="section-title">A club that feels<br/>like your club.</h2></div></div><div className="mx-auto w-full max-w-md self-center"><h1 className="section-title">{title}</h1><p className="soft-text mb-10 mt-5 text-sm">{subtitle}</p>{children}</div></section>;
+}

@@ -1,0 +1,1 @@
+export default function Loading() { return <div className="site-width min-h-[60vh] py-20" role="status"><span className="sr-only">Loading page</span><div className="skeleton h-16 w-2/3"/><div className="skeleton mt-8 h-72 w-full"/></div>; }
