@@ -56,6 +56,44 @@ label { font-size: 13px; font-weight: 500; }
 .section-title { font-size: clamp(36px, 4.3vw, 64px); line-height: 1.06; letter-spacing: -.055em; font-weight: 500; }
 .chapter { padding-block: 128px; }
 .soft-text { color: #a4a4a1; line-height: 1.7; }
+.booking-page { --background: #f2eee8; --foreground: #1e1b17; --secondary: #1e1b17; --secondary-foreground: #fff; --muted: #e7dfd5; --muted-foreground: #625d55; --border: #d9d1c7; background: #f2eee8; color: #1e1b17; }
+.booking-hero { --foreground: #fff; --border: #ffffff8c; --muted: #ffffff26; position: relative; min-height: calc(100svh - 88px); overflow: hidden; background: #17120f; }
+.booking-hero-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.booking-hero-scrim { position: absolute; inset: 0; background: linear-gradient(90deg, #120b08e6 5%, #120b08a8 56%, #120b084d), linear-gradient(0deg, #120b088c, transparent 55%); }
+.booking-hero-content { position: relative; z-index: 1; display: flex; min-height: calc(100svh - 88px); flex-direction: column; justify-content: center; padding-block: 74px; }
+.booking-hero .booking-lead { color: #fff0e7; font-size: 16px; line-height: 1.6; }
+.booking-hero .border-input, .booking-hero button[data-slot="button"] { border-color: #ffffff8c; color: white; background: #0f0907a6; }
+.booking-hero .border-input:hover, .booking-hero button[data-slot="button"]:hover { border-color: #ff8b54; background: #ff6b2c; color: #1e110a; }
+.booking-content { padding-top: 56px; padding-bottom: 88px; }
+.booking-sport-selection { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 54px; border-bottom: 1px solid #d9d1c7; padding-bottom: 28px; }
+.booking-sport-selection h2 { margin-top: 10px; color: #1e1b17; font-size: clamp(28px, 3.2vw, 42px); font-weight: 550; letter-spacing: -.055em; line-height: 1; }
+.booking-sport-button { border-color: #d9d1c7 !important; background: #fffdf9 !important; color: #1e1b17 !important; box-shadow: none !important; }
+.booking-sport-button[aria-pressed="true"] { border-color: #1e1b17 !important; background: #1e1b17 !important; color: #fff !important; }
+.booking-sport-button:hover { border-color: #1e1b17 !important; background: #eee8df !important; color: #1e1b17 !important; }
+.booking-sport-button[aria-pressed="true"]:hover { background: #33302c !important; color: #fff !important; }
+.booking-sport-summary { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 36px; align-items: center; padding: 16px; border-radius: 24px; background: #fffdf9; box-shadow: 0 16px 42px #2f201210; }
+.booking-sport-copy { padding: 18px 24px; }
+.booking-notice { margin-top: 24px; max-width: 850px; border-left: 3px solid #f26b30; padding: 4px 0 4px 16px; color: #625d55; font-size: 13px; line-height: 1.65; }
+.booking-court { overflow: hidden; border: 1px solid #d9d1c7; border-radius: 18px; background: #fffdf9; transition: border-color .25s, box-shadow .25s; }
+.booking-court.is-expanded { border-color: #5f5951; box-shadow: 0 14px 34px #39241414; }
+.booking-court-trigger { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 18px; padding: 23px 26px; background: transparent; color: #1e1b17; text-align: left; }
+.booking-court-type { display: block; margin-bottom: 7px; color: #6b655d; font-size: 10px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
+.booking-court-trigger h3 { font-size: 21px; font-weight: 600; letter-spacing: -.03em; }
+.booking-court-trigger p { margin-top: 5px; color: #6b655d; font-size: 12px; }
+.booking-court-cta { display: inline-flex; align-items: center; gap: 10px; color: #1e1b17; font-size: 13px; font-weight: 650; white-space: nowrap; }
+.booking-court.is-expanded .booking-court-cta span { transform: rotate(180deg); }
+.booking-court-cta span { font-size: 17px; transition: transform .25s; }
+.booking-court-details { border-top: 1px solid #e6ded4; padding: 25px 26px 28px; background: #fbf7f1; }
+.booking-date-row { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; }
+.booking-date-row label { color: #4d4842; }
+.booking-date-input { max-width: 220px; border-color: #d9d1c7; background: #fffdf9; color: #1e1b17; color-scheme: light; }
+.booking-slot { min-height: 52px; border: 1px solid #e0d8cf; border-radius: 9px; background: #f0ebe4; color: #8b847b; padding: 8px; text-align: center; font-size: 12px; transition: background .2s, border-color .2s, color .2s; }
+.booking-slot.is-available { border-color: #bcb4aa; background: #fffdf9; color: #1e1b17; }
+.booking-slot.is-available:hover { border-color: #1e1b17; background: #1e1b17; color: #fff; }
+.booking-social { border-top: 1px solid #d9d1c7; padding-top: 48px; }
+.booking-social-card { border: 1px solid #d9d1c7; border-radius: 16px; background: #fffdf9; padding: 25px; color: #1e1b17; }
+.booking-social-card button { background: #1e1b17; color: #fff; }
+.booking-social-card button:hover { background: #33302c; }
 .landing-hero { position: relative; min-height: min(760px, calc(100svh - 88px)); min-height: clamp(590px, calc(100svh - 88px), 820px); overflow: hidden; background: #101010; isolation: isolate; }
 .hero-panels { position: absolute; inset: 0; display: flex; gap: 3px; }
 .hero-panel { position: relative; min-width: 0; flex: 1 1 25%; overflow: hidden; background-size: cover; background-position: center; transition: flex .65s cubic-bezier(.22,.8,.25,1); }
@@ -82,8 +120,26 @@ label { font-size: 13px; font-weight: 500; }
 .hero-action-secondary { border: 1px solid #fff9; background: #10101091; color: white; }
 .hero-action-secondary:hover { background: #fff; color: #111; }
 @keyframes hero-word-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-.facility-grid { display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: 220px 220px; grid-auto-flow: dense; gap: 12px; }
+.experience-section { position: relative; overflow: hidden; background: #f2eee8; color: #191919; }
+.experience-section::before { position: absolute; top: -180px; right: -120px; width: 520px; height: 520px; border: 1px solid #ff6b2c38; border-radius: 50%; content: ""; pointer-events: none; }
+.experience-intro { position: relative; z-index: 1; }
+.experience-copy { position: relative; width: min(100%, 450px); min-height: 138px; padding: 34px 0 0 30px; }
+.experience-copy p { position: relative; z-index: 1; margin: 0; color: #4f4a43; font-size: clamp(17px, 1.45vw, 22px); font-weight: 500; line-height: 1.42; letter-spacing: -.025em; }
+.court-sketch { position: absolute; z-index: 0; right: -22px; bottom: -42px; width: 300px; color: #ec6a2f; opacity: .22; transform: rotate(-9deg); pointer-events: none; }
+.court-sketch-tennis, .court-sketch-basketball { transform-box: fill-box; transform-origin: center; animation: sketch-draw 4.8s ease-in-out infinite; }
+.court-sketch-basketball { animation-delay: .45s; }
+.court-sketch-line { animation: sketch-dash 5s linear infinite; }
+@keyframes sketch-draw { 0%, 12% { opacity: .08; stroke-dasharray: 240; stroke-dashoffset: 240; } 42%, 78% { opacity: 1; stroke-dashoffset: 0; } 100% { opacity: .08; stroke-dashoffset: -240; } }
+@keyframes sketch-dash { to { stroke-dashoffset: -110; } }
+.facility-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: 220px 220px; grid-auto-flow: dense; gap: 16px; }
 .facility-grid > :first-child { grid-row: span 2; }
+.experience-feature, .experience-card { border-radius: 18px; }
+.experience-feature { box-shadow: 0 18px 36px #47321d18; }
+.experience-card { position: relative; overflow: hidden; padding: 30px; }
+.experience-card-dark { background: #202020; color: #fff; box-shadow: 0 18px 36px #241b1320; }
+.experience-card-light { background: #fffdf9; color: #191919; box-shadow: 0 18px 36px #47321d13; }
+.experience-card-number { position: absolute; right: 25px; bottom: 21px; color: #ffffff38; font-size: 54px; font-weight: 600; letter-spacing: -.08em; line-height: 1; }
+.experience-card-light .experience-card-number { color: #c96b3c38; }
 .image-card { position: relative; overflow: hidden; border-radius: 4px; }
 .image-card img { object-fit: cover; transition: transform .7s ease-out; }
 .image-card:hover img { transform: scale(1.05); }
@@ -100,6 +156,6 @@ label { font-size: 13px; font-weight: 500; }
 .skeleton { background: linear-gradient(90deg,#181818,#242424,#181818); background-size: 200%; animation: shimmer 1.8s linear infinite; border-radius: 6px; }
 @keyframes shimmer { to { background-position: -200%; } }
 @media (max-width: 1023px) { .site-width { width: calc(100% - 48px); } .chapter { padding-block: 88px; } .landing-hero { min-height: 670px; } .hero-center { top: 42%; padding: 24px 0; background: radial-gradient(ellipse, #000b, #0000 72%); } .hero-center h1 { font-size: clamp(60px, 8vw, 88px); } .hero-panel-content { bottom: 44px; } .hero-sport-details p { max-width: 230px; } }
-@media (max-width: 639px) { .site-width { width: calc(100% - 36px); } .display-title { font-size: clamp(44px, 11.5vw, 68px); } .chapter { padding-block: 72px; } .landing-hero { min-height: 0; display: flex; flex-direction: column; } .hero-center { position: relative; top: auto; left: auto; order: -1; width: 100%; transform: none; padding: 64px 20px 48px; background: #101010; } .hero-center h1 { font-size: clamp(47px, 12vw, 70px); } .hero-actions { margin-top: 27px; gap: 8px; } .hero-actions a { min-height: 44px; padding-inline: 13px; gap: 8px; font-size: 11px; } .hero-panels { position: relative; display: flex; flex-direction: column; gap: 3px; } .hero-panel { min-height: 180px; flex: none; transition: min-height .4s ease; } .hero-panel.is-active { min-height: 275px; } .hero-video { position: absolute; inset: 0; } .hero-panel-content { bottom: 18px; left: 20px; right: 20px; } .hero-sport-trigger { font-size: 21px; } .facility-grid { grid-template-columns: 1fr; grid-template-rows: 320px 210px 210px; } .facility-grid > :first-child { grid-row: span 1; } .plan-card { padding: 26px; } }
+@media (max-width: 639px) { .site-width { width: calc(100% - 36px); } .display-title { font-size: clamp(44px, 11.5vw, 68px); } .chapter { padding-block: 72px; } .landing-hero { min-height: 0; display: flex; flex-direction: column; } .hero-center { position: relative; top: auto; left: auto; order: -1; width: 100%; transform: none; padding: 64px 20px 48px; background: #101010; } .hero-center h1 { font-size: clamp(47px, 12vw, 70px); } .hero-actions { margin-top: 27px; gap: 8px; } .hero-actions a { min-height: 44px; padding-inline: 13px; gap: 8px; font-size: 11px; } .hero-panels { position: relative; display: flex; flex-direction: column; gap: 3px; } .hero-panel { min-height: 180px; flex: none; transition: min-height .4s ease; } .hero-panel.is-active { min-height: 275px; } .hero-video { position: absolute; inset: 0; } .hero-panel-content { bottom: 18px; left: 20px; right: 20px; } .hero-sport-trigger { font-size: 21px; } .experience-copy { min-height: 120px; padding: 24px 6px 0; } .experience-copy p { font-size: 18px; } .court-sketch { right: -26px; bottom: -54px; width: 260px; } .facility-grid { grid-template-columns: 1fr; grid-template-rows: 320px 210px 210px; } .facility-grid > :first-child { grid-row: span 1; } .experience-card { min-height: 210px; } .booking-hero { min-height: calc(100svh - 88px); } .booking-hero-content { min-height: calc(100svh - 88px); padding-top: 58px; } .booking-sport-selection { align-items: start; margin-bottom: 40px; } .booking-sport-summary { grid-template-columns: 1fr; gap: 10px; padding: 10px; } .booking-sport-copy { padding: 16px 10px 12px; } .booking-court-trigger { align-items: start; padding: 20px; } .booking-court-details { padding: 20px; } .booking-date-row { align-items: start; flex-direction: column; } .booking-social-card { padding: 20px; } .plan-card { padding: 26px; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } .hero-video { display: none; } }
 @media print { header, footer, .no-print { display: none !important; } body { background: white; color: black; } .receipt { background: white !important; color: black !important; border: none !important; } }

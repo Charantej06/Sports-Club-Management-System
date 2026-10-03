@@ -24,6 +24,7 @@ type Hold = {
   invoiceId: string;
   priceSnapshot: { plan: string };
 };
+const displayHour = (hour: number) => `${hour === 12 ? 12 : hour % 12}:00 ${hour >= 12 ? "PM" : "AM"}`;
 export function CourtsView({
   data,
   initialSport,
@@ -43,6 +44,7 @@ export function CourtsView({
     .slice(0, 10);
   const [sport, setSport] = useState(initialSport),
     [day, setDay] = useState(today),
+    [expandedCourtId, setExpandedCourtId] = useState<string | null>(null),
     [hold, setHold] = useState<{
       area: "booking" | "social";
       hold: Hold;
@@ -74,31 +76,38 @@ export function CourtsView({
       },
     );
   return (
-    <section className="site-width py-16 md:py-20">
-      <p className="eyebrow mb-5 text-orange-400">
+    <section className="booking-page">
+      <div className="booking-hero">
+      <video className="booking-hero-video" autoPlay muted loop playsInline preload="metadata" aria-hidden="true"><source src="/videos/booking.mp4" type="video/mp4" /></video><div className="booking-hero-scrim" />
+      <div className="site-width booking-hero-content">
+      <p className="eyebrow mb-5 text-orange-600">
         {trial ? "Try something new" : "Make time for your game"}
       </p>
-      <h1 className="display-title max-w-6xl">
+      <h1 className="display-title max-w-6xl text-white">
         A court.
         <br />A fresh start.
       </h1>
-      <p className="soft-text mt-6 max-w-xl text-sm">
+      <p className="booking-lead mt-6 max-w-xl">
         Choose your sport and a one-hour session. Membership benefits apply at
         the session date.{" "}
         {trial ? "Your introductory trial uses the same booking checkout." : ""}
       </p>
-      <nav className="my-10 flex flex-wrap gap-3" aria-label="Choose sport">
+      </div></div>
+      <div className="site-width booking-content">
+      <nav className="booking-sport-selection" aria-label="Choose sport">
+        <div><p className="eyebrow text-orange-600">Choose your sport</p><h2>What are you playing?</h2></div><div className="flex flex-wrap gap-3">
         {data.sports.map((s) => (
           <Button
             key={s.id}
             variant={sport === s.id ? "default" : "outline"}
-            onClick={() => setSport(s.id)}
+            className="booking-sport-button"
+            onClick={() => { setSport(s.id); setExpandedCourtId(null); }}
             aria-pressed={sport === s.id}
           >
             {s.name}
           </Button>
         ))}
-      </nav>
+      </div></nav>
       {hold && <CheckoutHold {...hold} onDone={() => setHold(null)} />}
       <Feedback action={action} />
       {action.error?.message.includes("sign in") && (
@@ -106,9 +115,8 @@ export function CourtsView({
           Sign in to book →
         </Link>
       )}
-      <div className="grid gap-10 lg:grid-cols-[.7fr_1.3fr]">
-        <div>
-          <div className="relative h-72 overflow-hidden rounded">
+      <div className="booking-sport-summary">
+          <div className="relative h-64 overflow-hidden rounded-[20px] md:h-72">
             <Image
               src={selected.image}
               fill
@@ -117,60 +125,21 @@ export function CourtsView({
               className="object-cover"
             />
           </div>
-          <h2 className="mt-6 text-2xl">{selected.name}, your way.</h2>
-          <p className="soft-text mt-4 text-sm">{selected.description}</p>
-          <p className="notice mt-7">
+          <div className="booking-sport-copy"><p className="eyebrow text-orange-600">{selected.courts.length} courts available</p><h2 className="mt-3 text-3xl text-[#1e1b17]">{selected.name}, your way.</h2><p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#625d55]">{selected.description}</p></div>
+      </div>
+      <p className="booking-notice">
             {data.settings.dailySessionLimit} sessions per club day, including social play. Checkout places a
             temporary hold. Confirmed cancellation requires {data.settings.cancellationHours} hours of notice;
             reception can help with exceptions.
           </p>
           <Link
             href="/account"
-            className="mt-6 inline-block text-orange-500 text-sm"
+            className="mt-6 inline-block text-orange-700 text-sm font-medium"
           >
             Manage bookings & waiting-list offers →
           </Link>
-        </div>
-        <div>
-          <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <label htmlFor="court-date">Session date</label>
-              <Input
-                id="court-date"
-                className="mt-2 max-w-52 [color-scheme:dark]"
-                type="date"
-                min={today}
-                max={max}
-                value={day}
-                onChange={(e) => setDay(e.target.value)}
-              />
-              <div className="mt-3 flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setDay(today)}
-                >
-                  Today
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    setDay(
-                      new Date(+new Date(today) + 86400000)
-                        .toISOString()
-                        .slice(0, 10),
-                    )
-                  }
-                >
-                  Tomorrow
-                </Button>
-              </div>
-            </div>
-            <p className="text-xs text-neutral-500">
-              Asia/Kolkata · 60 minute sessions
-            </p>
-          </div>
+      <section className="mt-12">
+          <div className="mb-7 flex flex-wrap items-end justify-between gap-4"><div><p className="eyebrow text-orange-600">Choose a court</p><h2 className="mt-3 text-3xl text-[#1e1b17]">Find your hour.</h2></div><p className="text-xs text-[#6b655d]">Asia/Kolkata · 60 minute sessions</p></div>
           {availability.isPending && <p role="status">Loading sessions…</p>}
           {availability.error && (
             <p role="alert" className="field-error">
@@ -178,18 +147,18 @@ export function CourtsView({
             </p>
           )}
           <div className="space-y-6">
-            {availability.data?.map((c) => (
+            {availability.data?.map((c) => {
+              const expanded = expandedCourtId === c.id;
+              return (
               <article
                 key={c.id}
-                className="rounded border border-white/15 p-6"
+                className={`booking-court ${expanded ? "is-expanded" : ""}`}
               >
-                <h3>{c.name}</h3>
-                <p className="mt-2 text-xs text-neutral-500">
-                  {c.indoor ? "Indoor" : "Outdoor"} · {money(c.hourlyPaise)} /
-                  hour before benefits
-                </p>
+                <button className="booking-court-trigger" onClick={() => setExpandedCourtId(expanded ? null : c.id)} aria-expanded={expanded} aria-controls={`court-booking-${c.id}`}><span><span className="booking-court-type">{c.indoor ? "Indoor court" : "Outdoor court"}</span><h3>{c.name}</h3><p>{money(c.hourlyPaise)} / hour before benefits</p></span><span className="booking-court-cta">{expanded ? "Close" : "Choose a time"} <span aria-hidden="true">↓</span></span></button>
+                <div id={`court-booking-${c.id}`} className="booking-court-details" hidden={!expanded}>
+                  <div className="booking-date-row"><div><label htmlFor={`court-date-${c.id}`}>Choose a session date</label><Input id={`court-date-${c.id}`} className="booking-date-input mt-2" type="date" min={today} max={max} value={day} onChange={(e) => setDay(e.target.value)}/></div><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => setDay(today)}>Today</Button><Button size="sm" variant="outline" onClick={() => setDay(new Date(+new Date(today) + 86400000).toISOString().slice(0, 10))}>Tomorrow</Button></div></div>
                 <div className="mt-6 grid grid-cols-3 gap-2 sm:grid-cols-6">
-                  {c.slots.map((s) => (
+                  {c.slots.filter((s) => s.hour >= 13 && s.hour <= 23).map((s) => (
                     <button
                       key={s.hour}
                       disabled={action.isPending || !!s.reason || s.elapsed}
@@ -200,7 +169,7 @@ export function CourtsView({
                           ? "Hold this session"
                           : "Join waiting list")
                       }
-                      className={`min-h-11 rounded border p-2 text-center text-xs ${s.available ? "border-white/20 hover:border-orange-500" : "border-white/5 text-neutral-500"}`}
+                      className={`booking-slot ${s.available ? "is-available" : ""}`}
                       onClick={() =>
                         s.available
                           ? reserve(c.id, s.hour)
@@ -210,7 +179,7 @@ export function CourtsView({
                             })
                       }
                     >
-                      {String(s.hour).padStart(2, "0")}:00
+                      {displayHour(s.hour)}
                       <span className="mt-1 block text-[9px]">
                         {s.elapsed
                           ? "Started"
@@ -222,39 +191,38 @@ export function CourtsView({
                       </span>
                     </button>
                   ))}
-                </div>
+                  </div>
                 {c.slots.some((s) => s.reason) && (
-                  <p className="mt-4 text-xs text-orange-300">
+                  <p className="mt-4 text-xs text-orange-700">
                     Closure: {c.slots.find((s) => s.reason)?.reason}. Choose
                     another available court or hour above.
                   </p>
-                )}
+                )}</div>
               </article>
-            ))}
+            )})}
           </div>
-          <p className="mt-5 text-xs text-neutral-500">
+          <p className="mt-5 text-xs text-[#6b655d]">
             Availability refreshes every five seconds. Confirm checkout to
             reserve.
           </p>
-        </div>
-      </div>
-      <section className="mt-16 border-t border-white/10 pt-10">
-        <h2 className="text-3xl">Friday social play</h2>
-        <p className="soft-text mt-4 text-sm">
+      </section>
+      <section className="booking-social mt-16">
+        <h2 className="text-3xl text-[#1e1b17]">Friday social play</h2>
+        <p className="mt-4 text-sm text-[#625d55]">
           One court, a shared game. Reserve your place or join the waiting list
           when it is full.
         </p>
         {social.isPending && <p className="mt-6" role="status">Loading social sessions…</p>}
         {social.error && <p className="field-error mt-6" role="alert">{social.error.message}</p>}
         {social.data && !social.data.length && (
-          <p className="mt-6 text-sm text-neutral-500">
+          <p className="mt-6 text-sm text-[#6b655d]">
             Friday sessions appear when reception opens registration.
           </p>
         )}
         <div className="mt-7 grid gap-5 md:grid-cols-2">
           {social.data?.map((e) => (
             <article
-              className="rounded border border-white/15 p-6 space-y-4"
+              className="booking-social-card space-y-4"
               key={e.id}
             >
               <h3>
@@ -264,7 +232,7 @@ export function CourtsView({
                 {new Date(e.startsAt).toLocaleString("en-IN",{timeZone:"Asia/Kolkata"})} · {e.remaining}/
                 {e.capacity} places
               </p>
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-[#6b655d]">
                 {money(e.pricePaise)} before benefits
               </p>
               <Button
@@ -308,7 +276,7 @@ export function CourtsView({
             </article>
           ))}
         </div>
-      </section>
+      </section></div>
     </section>
   );
 }
