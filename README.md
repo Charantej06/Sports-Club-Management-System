@@ -1,373 +1,940 @@
-# Champions Club — Enterprise Sports Club Management System
+# Champions Club — Sports Club Management System
 
-A mission-critical, full-stack monolith for athletic clubs and sports complexes. Built with Next.js App Router, strict TypeScript, Prisma ORM, PostgreSQL, and a separate durable background worker. Designed for enterprise reliability, high-concurrency race protection, offline-resilient staff operations, and financial auditing.
+> A complete, full-stack sports-club management platform built for the Odoo Hackathon.  
+> Covers every department from member sign-up through court booking, retail, kitchen, billing and owner reporting — all running locally with no external dependencies.
 
 ---
 
-## ⚡ Quick Start: How to Run
+## ⚡ Quick Start: How to Run in 60 Seconds
 
 ### Prerequisites
-- **Node.js**: `v22.13.0` or later (tested on Node `22.20.0`)
+- **Node.js**: `v22.13.0` or later (tested on Node `22.20.0`) — run `node --version` to confirm
 - **PostgreSQL**: PostgreSQL 18
-- **Package Manager**: npm
+- **Package Manager**: npm (bundled with Node)
+
+### Setup Commands
+
+```powershell
+# 1. Install dependencies (internet needed only once)
+npm ci
+
+# 2. Generate .env with a secure random auth secret (preserves any custom variables)
+npm run setup:env
+
+# 3. Start the isolated local PostgreSQL 18 cluster on port 5433
+npm run db:local
+
+# 4. Generate Prisma client & apply all database migrations
+npm run db:generate
+npm run db:migrate
+
+# 5. Seed demo users, 36 products, courts, clubhouse menu, and sample invoices
+npm run db:seed
+
+# 6. Start the Next.js web application
+npm run dev
+
+# 7. In a separate terminal, start the durable background worker daemon
+npm run worker
+```
+
+Open **[http://localhost:3000](http://localhost:3000)** in your browser.
+
+> **One-Command Alternative**: If you prefer running both the Next.js app and the worker in a single terminal, use `npm run dev:all`.
 
 ---
 
-### Step-by-Step Setup
-
-1. **Clone and Install Dependencies**:
-   ```bash
-   git clone https://github.com/Charantej06/Sports-Club-Management-System.git
-   cd Sports-Club-Management-System
-   npm ci
-   ```
-
-2. **Initialize Environment Configuration**:
-   ```bash
-   npm run setup:env
-   ```
-   *Generates `.env` with a secure random `BETTER_AUTH_SECRET` if not already present, preserving your custom settings.*
-
-3. **Start the Database (Windows Local PostgreSQL 18)**:
-   ```bash
-   npm run db:local
-   ```
-   *Spawns an isolated local PostgreSQL 18 cluster in `.local/postgres` on port `5433` (completely isolated from any system database on 5432).*
-   *(On Linux/macOS or if using an existing PostgreSQL instance, set `DATABASE_URL` in `.env` directly).*
-
-4. **Run Migrations & Seed Sample Data**:
-   ```bash
-   npm run db:generate
-   npm run db:migrate
-   npm run db:seed
-   ```
-   *Deploys all 7 versioned relational SQL migrations (with PostgreSQL exclusion constraints, locks, and triggers) and seeds comprehensive demo accounts, courts, 36 shop products, menu items, and past invoices.*
-
-5. **Start the Web Application**:
-   ```bash
-   npm run dev
-   ```
-   The application is available at: **[http://localhost:3000](http://localhost:3000)**.
-
-6. **Start the Durable Background Worker** *(Open in a separate terminal)*:
-   ```bash
-   npm run worker
-   ```
-   *Handles transactional outbox jobs, automated 7/1/0-day membership reminders, 5-minute hold expirations, FIFO waiting-list offers, and CRM notifications.*
-
----
-
-## 🔑 Demo Accounts & Credentials
+## 🔑 Demo Accounts Quick Reference
 
 All demo user accounts are pre-seeded with password: **`Champions2026!`**
 
-| Email Address | Role | Persona / Scenarios to Explore |
+| Email | Role | Scenario & What to Test |
 |---|---|---|
-| `owner@champions.local` | **OWNER** | Executive dashboard, revenue/tax reports, cash shift audits, business settings, plans, staff payroll, and system logs. |
-| `reception@champions.local` | **RECEPTION** | Daily booking calendar, member check-in, QR scanning, guest walk-ins, CRM leads & quotes, and membership intake. |
-| `cashier@champions.local` | **CASHIER** | Retail POS, counter inventory, dine-in table ordering, tab management, cash shift reconciliation, and receipt generation. |
-| `kitchen@champions.local` | **KITCHEN** | Live order preparation queue (`Accept` → `Cook` → `Ready`), amended ticket versions, and dietary alerts. |
-| `member@champions.local` | **MEMBER** | Active Gold member (`Aarav`), digital Champions QR ID card, court reservations, order history, and billing receipts. |
-| `new@champions.local` | **MEMBER** | Fresh user (`Ananya`) without a membership, eligible to purchase standard/trial plans. |
-| `junior@champions.local` | **MEMBER** | Under-18 junior account (`Riya`), eligible for age-restricted Junior membership plans. |
-| `expired@champions.local` | **MEMBER** | Expired silver member (`Karan`), showing automatic renewal prompts and benefit lapses. |
+| `owner@champions.local` | **Owner** | Full admin: revenue reports, cash shift audits, business settings, plans, staff payroll, and local inbox. |
+| `reception@champions.local` | **Reception** | Daily court calendar, QR check-in, walk-in reservations, CRM leads & quotes, and membership intake. |
+| `cashier@champions.local` | **Cashier / Waiter** | Counter retail sales, live dining POS, member tabs, bill settlement, and cash shift closing. |
+| `kitchen@champions.local` | **Kitchen** | Real-time preparation queue (`Accept` → `Cook` → `Ready`), amended ticket versions, and dietary alerts. |
+| `member@champions.local` | **Member** | Active Gold member (Aarav), digital Champions QR ID card, court reservations, order history, and receipts. |
+| `new@champions.local` | **Member** | Fresh user (Ananya) without a membership (test self-serve membership purchase flow). |
+| `junior@champions.local` | **Member** | Under-18 junior account (Riya), eligible for age-restricted Junior plan. |
+| `expired@champions.local` | **Member** | Expired silver member (Karan), showing automatic renewal prompts and lapsed benefits. |
+
+> All demonstration actions **persist**. Re-running seed does not erase your local purchase or booking history.
 
 ---
 
-## 🏛️ System Architecture
+## Table of Contents
 
-Champions Club is architected as a modular monolith adhering to Clean Architecture principles. Next.js App Router handles routing, authentication, and HTTP serialization, delegating all domain logic to decoupled business modules in [`src/modules`](file:///d:/ODOO-Sports-Club-System/src/modules).
+1. [What Is Champions Club?](#1-what-is-champions-club)
+2. [System Overview](#2-system-overview)
+3. [Architecture](#3-architecture)
+   - [3.1 High-Level Architecture Overview](#31-system-architecture-overview)
+   - [3.2 Enterprise Monolith & Persistence Layer](#32-enterprise-monolith--persistence-layer)
+   - [3.3 Request Lifecycle](#33-request-lifecycle)
+   - [3.4 Module Map](#34-module-map)
+4. [Tech Stack](#4-tech-stack)
+5. [Local Setup](#5-local-setup)
+6. [Environment Variables](#6-environment-variables)
+7. [Demo Accounts](#7-demo-accounts)
+8. [System Workflows](#8-system-workflows)
+   - [8.1 Accounts & Authentication](#81-accounts--authentication)
+   - [8.2 Memberships & QR Cards](#82-memberships--qr-cards)
+   - [8.3 Court Booking & Social Play](#83-court-booking--social-play)
+   - [8.4 The Champions Shop](#84-the-champions-shop)
+   - [8.5 Clubhouse Kitchen & Bar](#85-clubhouse-kitchen--bar)
+   - [8.6 Reception & CRM](#86-reception--crm)
+   - [8.7 Shared Billing & Payments](#87-shared-billing--payments)
+   - [8.8 Owner Reports & Administration](#88-owner-reports--administration)
+   - [8.9 Background Worker & Emails](#89-background-worker--emails)
+9. [Integration Modes](#9-integration-modes)
+10. [Database](#10-database)
+11. [Testing & Verification](#11-testing--verification)
+12. [Docker](#12-docker)
+13. [LAN & Offline Operation](#13-lan--offline-operation)
+14. [Operational Policies](#14-operational-policies)
+15. [Judging Walkthrough](#15-judging-walkthrough)
+16. [Contributing](#16-contributing)
+
+---
+
+## 1. What Is Champions Club?
+
+**Champions Club** is a production-grade sports-club management system for a multi-sport club offering **Tennis, Padel, Badminton and Cricket**. It is a single-application monolith that handles every department of club operations — from member sign-up and court booking, through retail and kitchen POS, to owner financial reporting and payroll.
+
+| Department | Who uses it |
+|---|---|
+| Customer portal and membership | Members / public |
+| Court booking and social play | Members, reception |
+| Retail shop | Online shoppers, counter cashiers |
+| Clubhouse kitchen and bar POS | Waiters, kitchen staff, cashiers |
+| Reception and CRM | Reception team |
+| Financial reporting and reconciliation | Owner / management |
+| HR, payroll and shift management | Owner, staff |
+| Email delivery and background jobs | Automated worker |
+
+The platform operates **fully offline** after the initial package install. No payment gateway, cloud email or third-party account is required for any local demo or judging session.
+
+---
+
+## 2. System Overview
+
+Champions Club is split into eight functional systems, each owned by a corresponding source module under `src/modules/`:
+
+| System | Module | Description |
+|---|---|---|
+| **Accounts** | `account` | Sign-up, login, profile, session management, Champions ID, QR card |
+| **Membership** | `membership` | Plans, purchase, renewal, benefit snapshots, eligibility, term history |
+| **Bookings** | `bookings` | Court scheduling, hourly holds, social play, waiting lists, check-in |
+| **Shop** | `shop` | 36-product catalogue, variants, cart, online and counter checkout, inventory |
+| **Clubhouse** | `clubhouse` | Table POS, kitchen tickets, member tabs, settlement, shift reports |
+| **CRM** | `crm` | Enquiries, leads, assignment, follow-ups, quotes, account conversion |
+| **Billing** | `billing` | Shared invoices, allocations, credits, refunds, idempotency, receipts |
+| **Operations / Admin** | `administration`, `reports`, `staff`, `operations` | Owner reports, cash reconciliation, payroll, employee management |
+
+All systems share one PostgreSQL database through Prisma. Business rules are enforced at the database level with constraints, triggers, exclusion locks and transactions — not only in application code.
+
+---
+
+## 3. Architecture
+
+### 3.1 System Architecture Overview
 
 ```mermaid
 flowchart TD
-    subgraph Client["Presentation & Client Layer"]
-        Web["Next.js Web Client (App Router)"]
-        Mobile["Responsive Mobile UI (390px Viewport)"]
-        StaffDesk["Staff & Cashier Workspaces"]
+    subgraph CLIENT["🌐 Presentation & Client Layer"]
+        CP["Customer Pages
+(black · white · orange)"]
+        SP["Staff Workspace
+(white · slate · orange)"]
+        MOB["Responsive Mobile View
+(390px Viewport Support)"]
     end
 
-    subgraph API["API & Route Handlers (/src/app/api)"]
-        PublicAPI["Public & Availability API"]
-        AuthAPI["Better Auth Engine"]
-        OpsAPI["Operations Dispatcher (POST/PATCH)"]
-        AdminAPI["Staff & Owner Reporting API"]
+    subgraph NEXTJS["⚡ Next.js App Router  —  Node 22"]
+        direction TB
+        subgraph PAGES["src/app/  — Pages & Route Handlers"]
+            PUB["Public Pages
+Home · Book · Memberships · Shop · Clubhouse"]
+            ACC["account/
+Profile · QR card · Activity · Invoices"]
+            STF["staff/
+Reception · POS · Kitchen · Inventory · Owner"]
+            API["api/
+Authenticated REST Endpoints
+Zod Validation · Idempotency Guard"]
+        end
+
+        subgraph MODULES["src/modules/  — Decoupled Business Services"]
+            direction LR
+            M1["account
+membership"]
+            M2["bookings
+shop"]
+            M3["clubhouse
+crm"]
+            M4["billing
+reports"]
+            M5["administration
+operations · mail"]
+        end
+
+        subgraph LIB["src/lib/  — Infrastructure & Shared Utilities"]
+            direction LR
+            L1["db.ts
+Prisma Client · UTC Mode"]
+            L2["access.ts
+RBAC Guards · Session"]
+            L3["errors.ts
+AppError Handlers"]
+            L4["cart-store.ts
+User-Scoped Isolation"]
+        end
     end
 
-    subgraph Domain["Domain Services (/src/modules)"]
-        BookingsMod["Bookings & Courts (/bookings)"]
-        MembershipMod["Memberships & Plans (/membership)"]
-        ShopMod["Retail & Inventory (/shop)"]
-        ClubhouseMod["Clubhouse & Dining POS (/clubhouse)"]
-        BillingMod["Ledger & Billing (/billing)"]
-        PayrollMod["Staff & Payroll (/operations)"]
-        CRMMod["Enquiries & CRM (/crm)"]
+    subgraph DB["🗄️ PostgreSQL 18  —  127.0.0.1:5433"]
+        direction LR
+        DB1["Exclusion Constraints
+EXCLUDE USING gist"]
+        DB2["Database Triggers
+Daily Quota · Event Capacity"]
+        DB3["Pessimistic Row Locks
+SELECT FOR UPDATE"]
+        DB4["Transactional Outbox
+SKIP LOCKED Queue"]
     end
 
-    subgraph Storage["Persistence & Infrastructure"]
-        Postgres[(PostgreSQL 18 Database)]
-        Exclusion["Exclusion Constraints & Row Locks"]
-        Outbox[("Durable Job Outbox (Prisma)")]
+    subgraph WORKER["⚙️ Durable Background Worker  —  src/worker.ts"]
+        direction LR
+        W1["Hold Expiry Sweeper
+FIFO Waitlist Reoffer"]
+        W2["7/1/0-Day Reminder Dispatch
+Dual Email Adapters (Local/SMTP)"]
+        W3["Gateway Capture Recovery
+Stale Lease Auto-Recovery"]
     end
 
-    subgraph Background["Asynchronous Durable Worker"]
-        Worker["Durable Worker Process (src/worker.ts)"]
-        Reminders["7/1/0-Day Reminder Dispatcher"]
-        HoldSweeper["Expired Hold Release Daemon"]
-        WaitlistRecovery["FIFO Waitlist Reoffer Service"]
-    end
-
-    Client -->|HTTPS / JSON| API
-    API --> Domain
-    Domain -->|ACID Transactions| Postgres
-    Domain -->|Transactional Jobs| Outbox
-    Postgres -.-> Exclusion
-    Worker -->|FOR UPDATE SKIP LOCKED| Outbox
-    Worker -->|Update State| Postgres
+    CP & SP & MOB -->|HTTPS / JSON| API
+    API --> PAGES
+    PAGES --> MODULES
+    MODULES --> LIB
+    LIB -->|Prisma Transactions| DB
+    DB -->|SKIP LOCKED claims| WORKER
+    WORKER -->|retry / complete| DB
 ```
 
-### Core Architecture Rules & Invariants
-1. **Server-Authoritative Business Logic**: Client devices never submit prices, role levels, or discount calculations. The server computes pricing from database snapshots.
-2. **Integer Paise Financial Storage**: All monetary amounts are stored as 64-bit integer paise (1 INR = 100 paise) to eliminate floating-point rounding errors.
-3. **Asia/Kolkata Business Boundaries**: Timestamps persist in UTC; business days, quotas, and club operating hours (06:00 – 22:00) evaluate strictly in `Asia/Kolkata`.
-4. **Immutable Historical Records**: Invoices, credit notes, payment allocations, and finalized payslips are append-only snapshots that can never be mutated after confirmation.
-5. **Optimistic & Pessimistic Concurrency**: Row-level locking (`SELECT ... FOR UPDATE`), PostgreSQL exclusion constraints (`EXCLUDE USING gist`), and transactional outbox patterns eliminate race conditions across courts, tables, and inventory.
+### 3.2 Enterprise Monolith & Persistence Layer
 
----
-
-## 🧩 Subsystems & Module Breakdown
-
----
-
-### 1. Court Booking & Facility Management
-*Owned by [`src/modules/bookings/service.ts`](file:///d:/ODOO-Sports-Club-System/src/modules/bookings/service.ts)*
-
-Handles reservation scheduling across 4 core photographic sports (Tennis, Padel, Badminton, and Cricket).
+The architecture enforces strict data integrity rules across all club domains:
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Available : Slot Opened by Club Hours
-    Available --> HOLD : User clicks slot (5-min reservation)
-    HOLD --> Available : User closes modal / cancels checkout
-    HOLD --> Available : 5-minute timeout expires (Worker Sweeper)
-    HOLD --> CONFIRMED : Payment confirmed (Local / Gateway)
-    CONFIRMED --> CHECKED_IN : QR Scanned at Reception (30-min window)
-    CONFIRMED --> CANCELLED : Cancelled with 12h notice (Credit Issued)
-    Available --> MAINTENANCE : Facility closure scheduled
-    MAINTENANCE --> Available : Closure lifted
+flowchart TD
+    subgraph INGRESS["Client Mutation Ingress"]
+        REQ["Client Mutation Request"] --> IDEM["Idempotency Header Check"]
+        IDEM --> AUTH["Better Auth Session Validation"]
+        AUTH --> RBAC["Role & Ownership Verification"]
+    end
+
+    subgraph TX["Atomic Database Transaction (Prisma)"]
+        RBAC --> LOCK["Pessimistic Row Lock (Court / SKU / Invoice)"]
+        LOCK --> BIZ["Execute Server-Priced Domain Logic"]
+        BIZ --> SNAP["Snapshot Immutable Invoice / Benefits / Lines"]
+        SNAP --> ENQ["Enqueue Outbox Job (Email / Audit / Sweeper)"]
+        ENQ --> COMMIT["Commit Transaction (Release Locks)"]
+    end
+
+    subgraph POST["Response & Propagation"]
+        COMMIT --> RES["HTTP 200 Response with Immutable Entity"]
+        COMMIT --> ASYNC["Worker Claims Outbox Job (SKIP LOCKED)"]
+    end
 ```
 
-- **5-Minute Server Hold**: When a user selects a court slot, a server-side `HOLD` is atomically acquired with an explicit `holdUntil` timestamp.
-- **Immediate Server Release**: If a customer dismisses or closes the checkout dialog, a release mutation (`action: "cancel"`) runs immediately, restoring the slot to green/available status without making other members wait.
-- **PostgreSQL Exclusion Constraints**: Overlapping bookings on the same court and time interval are rejected at the database engine level via GiST index constraints.
-- **Daily Quotas & Complimentary Sessions**: Enforces member daily limits and automatically deducts complimentary weekly sessions awarded by active membership tiers.
-- **Friday Social Mixers & FIFO Waitlist**: Capacity-gated multiplayer events. When a participant cancels, the durable worker automatically claims the next player on the waitlist in strict FIFO order with an expiring 30-minute offer.
-
----
-
-### 2. Memberships & Contactless Access
-*Owned by [`src/modules/membership/service.ts`](file:///d:/ODOO-Sports-Club-System/src/modules/membership/service.ts)*
-
-Manages customer identity, subscription life cycles, and digital membership credentials.
-
-- **Tiered Benefits**: Configurable plans (Gold, Silver, Junior) providing percentage court discounts, complimentary weekly sessions, shop retail discounts, and clubhouse dining privileges.
-- **Contiguous Renewal Terms**: Extending an active membership creates contiguous valid date intervals without overwriting past contract terms.
-- **Age-Restricted Junior Eligibility**: Enforces strict birthdate validation — Junior plans are only purchasable if the user is under 18 on the term start date.
-- **Virtual Digital QR Pass**: Generates dynamic, opaque QR tokens (`qrcode` + `ZXing`). Reception scans or manually verifies the code for single-use court check-in without exposing internal primary keys.
-- **Session Revocation**: When an administrator upgrades or revokes member roles, existing user auth sessions are instantly invalidated.
-
----
-
-### 3. Multi-Channel Retail & Inventory POS
-*Owned by [`src/modules/shop/service.ts`](file:///d:/ODOO-Sports-Club-System/src/modules/shop/service.ts)*
-
-Unified e-commerce storefront and physical reception counter sales sharing a single synchronized inventory pool.
-
-- **Variant Stock Tracking**: Manages 36 products across sizing, grip levels, and colors.
-- **Isolated Cart Persistence**: Shopping carts are scoped by user account in LocalStorage, completely isolating guest carts from logged-in members.
-- **Pickup vs. Delivery Fulfillment**: Pickup orders hold inventory until collected; delivery orders consume stock upon courier dispatch.
-- **Audited Restocking & Returns**: Cashiers can process partial item returns, issuing exact pro-rated credits while optionally returning goods to stock or marking them as damaged.
-- **Zero-Stock Race Safety**: Atomic database decrement ensures concurrent purchases on the final item in stock award the item to exactly one customer while safely rejecting the other.
-
----
-
-### 4. Clubhouse Dining & Table POS
-*Owned by [`src/modules/clubhouse/service.ts`](file:///d:/ODOO-Sports-Club-System/src/modules/clubhouse/service.ts)*
-
-Complete restaurant and café management linking dining floor tables with real-time kitchen operations.
+### 3.3 Request Lifecycle
 
 ```mermaid
 flowchart LR
-    Table["Open Table / POS Order"] --> Ticket["Create Kitchen Ticket"]
-    Ticket --> Accept["Kitchen: Accept Ticket"]
-    Accept --> Cook["Kitchen: Cooking"]
-    Cook --> Ready["Kitchen: Marked Ready"]
-    Ready --> Served["Cashier: Marked Served"]
-    Served --> Settle["Settle Invoice (Cash/Card/Tab)"]
-    Settle --> Close["Table Closed"]
+    REQ(["HTTP Request"])
+    AUTH["🔐 Authenticate
+Better Auth session"]
+    AUTHZ["🛡️ Authorize
+Role + Ownership check"]
+    ZOD["✅ Validate
+Zod schema"]
+    MOD["📦 Module
+Business logic"]
+    TX["🏦 Transaction
+DB constraints + locks"]
+    RES(["HTTP Response"])
+
+    REQ --> AUTH
+    AUTH -->|valid session| AUTHZ
+    AUTH -->|no session| E1(["401 Unauthorized"])
+    AUTHZ -->|permitted| ZOD
+    AUTHZ -->|denied| E2(["403 Forbidden"])
+    ZOD -->|clean| MOD
+    ZOD -->|invalid| E3(["400 Bad Request"])
+    MOD --> TX
+    TX -->|committed| RES
+    TX -->|constraint violation| E4(["409 / 422 Error"])
 ```
 
-- **Table Management**: Real-time table status tracking (Available, Active, Billing).
-- **Kitchen Preparation Workflow**: Independent ticket states allow kitchen staff to prepare courses while cashiers add amendments without blocking table operations.
-- **Member Tabs & Overdue Guards**: Members can charge orders to their account tab up to their configured limit (default: ₹5,000). If unpaid charges exceed 7 days, further credit purchases are blocked automatically.
-- **Age-Gated Beverages**: Alcohol or bar items require verified member age (21+) or explicit staff attestation for guests.
+### 3.4 Module Map
+
+```mermaid
+graph TD
+    subgraph CUSTOMER["Customer-facing"]
+        A1["account
+profile · QR · session"]
+        A2["membership
+plans · terms · benefits"]
+        A3["bookings
+courts · holds · social"]
+        A4["shop
+catalogue · cart · orders"]
+        A5["clubhouse
+POS · kitchen · tabs"]
+    end
+
+    subgraph STAFF["Staff-facing"]
+        B1["crm
+enquiries · leads · CRM"]
+        B2["operations
+reception · check-in"]
+        B3["administration
+owner · payroll · HR"]
+        B4["reports
+financial · utilization"]
+    end
+
+    subgraph SHARED["Shared Services"]
+        C1["billing
+invoices · allocations
+credits · refunds"]
+        C2["mail
+outbox · delivery · SMTP"]
+        C3["public
+read-only public views"]
+        C4["staff
+role guards · onboarding"]
+        C5["facilities
+courts · sports · status"]
+    end
+
+    A1 & A2 & A3 & A4 & A5 --> C1
+    B1 & B2 & B3 & B4 --> C1
+    C1 --> C2
+    A3 & A4 & A5 --> C5
+```
+
+**Key design principles:**
+
+- **API layer** only authenticates, authorizes (role + ownership), validates with Zod and delegates to modules.
+- **Modules** own all business rules. They never return raw database rows to HTTP handlers.
+- **Database** is the last line of defence — constraints and locks prevent corrupt state even if application code has a bug.
+- **Worker** is a separate Node process that claims durable jobs using `SKIP LOCKED` to avoid double-processing. It recovers stale leases after crashes.
+- **Money** is always stored as **integer paise** (Rs 1 = 100 paise). No floating-point arithmetic on financial values.
+- **Timestamps** are stored as UTC; the club timezone (`Asia/Kolkata`) is used only for display and booking-day boundaries.
 
 ---
 
-### 5. Unified Invoicing & Financial Reconciliation
-*Owned by [`src/modules/billing/service.ts`](file:///d:/ODOO-Sports-Club-System/src/modules/billing/service.ts)*
+## 4. Tech Stack
 
-Every transaction across court bookings, memberships, pro-shop sales, and dining feeds into a single double-entry ledger.
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router), React 19 |
+| Language | TypeScript 6 (strict mode) |
+| Styling | Tailwind CSS 4, GSAP 3 animations |
+| UI primitives | Radix UI / CVA (shadcn-style, custom club themes) |
+| ORM | Prisma 7 with `@prisma/adapter-pg` |
+| Database | PostgreSQL 18 |
+| Auth | Better Auth 1 (sessions, verification, revocation) |
+| Validation | Zod 4 + React Hook Form 7 |
+| Data fetching | TanStack Query 5 |
+| QR | `qrcode` (generation) + `@zxing/browser` (camera scan) |
+| Email | Nodemailer (SMTP) + local DB inbox |
+| Background jobs | Custom durable worker with transactional outbox |
+| Testing | Node built-in test runner (`tsx --test`) |
+| CI | GitHub Actions |
+| Containers | Docker / Compose |
+
+---
+
+## 5. Local Setup
+
+### Prerequisites
+
+- **Node.js 22.13+** (tested on 22.20.0) — run `node --version` to confirm
+- **npm** (bundled with Node)
+- **PostgreSQL 18** installed at `C:/Program Files/PostgreSQL/18/bin`
+  (override with `PG_BIN` env var if installed elsewhere)
+
+> **Internet is needed once** to download packages. After `npm ci`, all fonts, images, QR generation, email and the local database run offline.
+
+### Step-by-step
+
+```powershell
+# 1. Install dependencies
+npm ci
+
+# 2. Generate .env with a random auth secret (safe to re-run; preserves existing values)
+npm run setup:env
+
+# 3. Start the isolated local PostgreSQL cluster on port 5433
+npm run db:local
+
+# 4. Generate the Prisma client
+npm run db:generate
+
+# 5. Apply all migrations
+npm run db:migrate
+
+# 6. Seed demo users, catalogue, menu and courts
+npm run db:seed
+
+# 7a. Start everything at once (recommended)
+npm run dev:all
+
+# 7b. Or start separately in two terminals
+npm run dev       # Next.js on http://localhost:3000
+npm run worker    # Background job processor
+```
+
+Open **http://localhost:3000** in your browser.
+
+### Useful scripts
+
+| Command | Purpose |
+|---|---|
+| `npm run dev:all` | Start app + worker together (Ctrl+C stops both) |
+| `npm run start:all` | Production mode (after `npm run build`) |
+| `npm run db:local -- --stop` | Stop the local PostgreSQL cluster |
+| `npm run mail:verify -- you@example.com` | Test SMTP configuration |
+| `npm run lint` | ESLint check |
+| `npm run typecheck` | TypeScript compile check |
+| `npm test` | Automated unit test suite (14 tests) |
+| `npm run test:integration` | Integration tests (requires running app + migrated DB) |
+| `npm run build` | Production build |
+
+> **Note:** `db:local` creates an isolated persistent cluster in `.local/postgres` bound to `127.0.0.1:5433`. It never touches the system cluster on port 5432. Seeding is idempotent — it preserves existing rows, prices, stock, roles and memberships.
+
+---
+
+## 6. Environment Variables
+
+Copy `.env.example` to `.env` (or run `npm run setup:env`). All variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | `postgresql://champions:champions_local_only@127.0.0.1:5433/champions` | PostgreSQL connection string |
+| `BETTER_AUTH_SECRET` | *(generated)* | At least 32-char random secret for session signing |
+| `BETTER_AUTH_URL` | `http://localhost:3000` | App origin — change to LAN IP for LAN use |
+| `TRUSTED_ORIGINS` | `http://localhost:3000` | Comma-separated allowed CORS origins |
+| `PAYMENT_MODE` | `local` | `local` (simulated) or `razorpay` |
+| `RAZORPAY_KEY_ID` | *(empty)* | Razorpay key (required if `PAYMENT_MODE=razorpay`) |
+| `RAZORPAY_KEY_SECRET` | *(empty)* | Razorpay secret |
+| `RAZORPAY_WEBHOOK_SECRET` | *(empty)* | Razorpay webhook HMAC secret |
+| `EMAIL_MODE` | `local` | `local` (owner inbox) or `smtp` (real delivery) |
+| `SMTP_HOST` | *(empty)* | SMTP server hostname |
+| `SMTP_PORT` | `587` | SMTP port (use 465 for implicit TLS) |
+| `SMTP_SECURE` | *(auto)* | Force TLS: `true` or `false` |
+| `SMTP_USER` | *(empty)* | SMTP username |
+| `SMTP_PASSWORD` | *(empty)* | SMTP password |
+| `EMAIL_FROM` | `Champions Club <club@champions.local>` | Sender address |
+| `POSTGRES_PASSWORD` | `champions_local_only` | Docker Compose DB password |
+
+See **[docs/SMTP.md](docs/SMTP.md)** for provider-by-provider email configuration (Gmail, Brevo, SendGrid, SES, etc.).
+
+---
+
+## 7. Demo Accounts
+
+All demo passwords: **`Champions2026!`** — emails end in `@champions.local`.
+
+| Email | Role | Scenario |
+|---|---|---|
+| `member@champions.local` | Customer | Aarav — active Gold membership, receipts, QR card |
+| `new@champions.local` | Customer | Ananya — account with no membership (purchase flow) |
+| `junior@champions.local` | Customer | Riya — under-18, eligible for Junior plan |
+| `expired@champions.local` | Customer | Karan — expired Silver, renewal prompt shown |
+| `owner@champions.local` | Owner | Priya — full admin: reports, settings, staff, inbox |
+| `reception@champions.local` | Reception | Neha — calendar, walk-ins, check-in, CRM |
+| `cashier@champions.local` | Cashier / Waiter | Dev — counter sales, POS, billing |
+| `kitchen@champions.local` | Kitchen | Kabir — preparation queue and item amendments |
+
+> Demonstration actions **persist**. Re-seeding does not erase purchase or booking history.
+
+---
+
+## 8. System Workflows
+
+### 8.1 Accounts & Authentication
 
 ```mermaid
 flowchart TD
-    Operation["Originating Activity (Court / Plan / Retail / Dining)"] --> Invoice["Generate Invoice (Snapshotted Lines in Paise)"]
-    Invoice --> Payment["Payment Execution"]
-    Payment -->|LOCAL| SimReceipt["Local Simulated Payment (Zero Real Funds)"]
-    Payment -->|MANUAL| StaffReceipt["Staff Attested Cash / Card / UPI"]
-    Payment -->|GATEWAY| RazorpayReceipt["Verified Razorpay HMAC Capture"]
-    SimReceipt --> Allocation["Transactional Payment Allocation"]
-    StaffReceipt --> Allocation
-    RazorpayReceipt --> Allocation
-    Allocation --> Ledger["Ledger Snapshot & Audit Trail"]
+    SU["Sign Up
+email + password"] --> VE["Email Verification
+link in inbox"]
+    VE --> LI["Login
+Better Auth session"]
+    LI --> CD{"Role?"}
+    CD -->|member| CX["Customer workspace
+Profile · Bookings · Shop
+Statement · QR card"]
+    CD -->|reception| RX["Reception workspace
+Calendar · Walk-ins · CRM"]
+    CD -->|cashier| CAS["Cashier workspace
+POS · Inventory · Billing"]
+    CD -->|kitchen| KIT["Kitchen screen
+Tickets · Preparation"]
+    CD -->|owner| OWN["Owner workspace
+Reports · Settings · HR"]
+
+    PR["Password Reset
+link in inbox"] -->|forgot password| LI
+    OWN -->|assign role| RA["Role Assignment
+revokes existing sessions"]
+    RA --> LI
 ```
 
-- **Idempotency Keys**: All financial mutations require unique `Idempotency-Key` headers, guaranteeing duplicate requests cannot create duplicate charges or payments.
-- **Cash Float Reconciliation**: Cashiers must record their opening float before starting a shift. When closing, the system compares expected cash (Opening Float + Cash Receipts − Payouts − Refunds) with counted physical cash, enforcing mandatory written explanations for any discrepancy.
-- **Executive Financial Reports**: Owners can filter revenue, receipts, credits, and refunds by day, week, month, or custom date ranges with real-time drill-down into every supporting invoice. CSV exports sanitize formulas against CSV-injection attacks.
+- Every account gets a unique **Champions ID** (e.g. `CC-DEMO-MEMBER`) enforced by the database.
+- Sign-up, login, logout, session expiry, email verification and password-reset all use **Better Auth**.
+- Public sign-up cannot assign privileged roles. Owner assigns roles; role assignment revokes existing sessions immediately.
+- Customer pages show: profile, booking history, purchase history, receipts, outstanding charges and a membership card or QR.
+- **Authorization:** every protected API endpoint checks session + role + ownership. A member cannot access another member's receipts, bookings or statement by changing an ID in the URL.
 
 ---
 
-### 6. Human Resources & Staff Payroll
-*Owned by [`src/modules/operations/queries.ts`](file:///d:/ODOO-Sports-Club-System/src/modules/operations/queries.ts)*
+### 8.2 Memberships & QR Cards
 
-Internal employee management system with role-segregated privacy controls.
+**Plans:** Gold (Rs 3,999/mo), Silver (Rs 2,199/mo), Junior (Rs 1,199/mo)
 
-- **Shift Scheduling**: Interactive scheduling with conflict detection preventing overlapping shifts or scheduling during approved employee leave.
-- **Leave Requests & Approvals**: Staff submit leave requests with reason and dates; owners approve or reject with comments.
-- **Finalized Payslips**: Generates immutable salary snapshots with configurable tax and withholding summaries. Staff can view and print only their own payslips.
+| Benefit | Gold | Silver | Junior |
+|---|---|---|---|
+| Court discount | 25% | 15% | 20% |
+| Shop discount | 15% | 5% | 10% |
+| Food/bar discount | 15% | 5% | 10% |
+| Free sessions/week | 2 | 0 | 1 |
+
+**Purchase flow:**
+
+```mermaid
+flowchart LR
+    A(["Member"]) --> B["Select Plan
+Gold · Silver · Junior"]
+    B --> C["Select Term
+1 month · 3 months · Annual"]
+    C --> D["Server prices
++ term discount applied"]
+    D --> E["5-min Hold
+created atomically"]
+    E --> F{"Confirm?"}
+    F -->|yes| G["Atomic commit
+term + invoice
++ allocation
++ benefit snapshot
++ audit + idempotency key"]
+    F -->|timeout / cancel| H["Hold released
+slot freed"]
+    G --> I(["Active Membership
+QR Card issued"])
+
+    subgraph CONCURRENCY["Concurrency guard"]
+        E -->|duplicate request| DUP["Idempotency key
+returns original result"]
+    end
+```
+
+**Membership card and QR:**
+- Active membership shows a virtual card with name, Champions ID, plan badge and an opaque QR code.
+- QR contains a **revocable opaque identifier** — not personal data. Revoking issues a new identifier; the old one fails staff lookup immediately.
+- Staff can scan the QR to see permitted member details (name, plan, benefits) but never payment secrets.
+- No membership shows an invitation card. Expired shows a renewal prompt. History is never deleted.
 
 ---
 
-### 7. Durable Background Worker & Notification Outbox
-*Owned by [`src/worker.ts`](file:///d:/ODOO-Sports-Club-System/src/worker.ts)*
+### 8.3 Court Booking & Social Play
 
-A dedicated background daemon operating independently from Next.js web requests.
+**Courts:** 3 Tennis · 2 Padel · 4 Badminton · 2 Cricket nets  
+**Hours:** 06:00–23:00 daily · Hourly start times · 14-day booking window
 
-- **Transactional Outbox**: Business mutations enqueue asynchronous jobs inside the same database transaction that updates business state.
-- **High-Concurrency Locking**: Workers claim pending jobs using `SELECT ... FOR UPDATE SKIP LOCKED`, allowing safe horizontal scaling without dual-processing.
-- **Scheduled Membership Reminders**: Automatically scans membership terms and dispatches notifications at 7 days, 1 day, and 0 days prior to expiration.
-- **Dual Email Adapter**: Supports `EMAIL_MODE=local` (storing messages in the database test inbox for local inspection) and `EMAIL_MODE=smtp` (external delivery via authenticated TLS SMTP).
+**Standard booking flow:**
+
+```mermaid
+flowchart TD
+    S(["Customer"]) --> SEL["Select Sport · Date · Hour"]
+    SEL --> VAL{"Server validates"}
+    VAL -->|court busy| BUSY(["Show alternatives
++ Waiting list option"])
+    VAL -->|quota exceeded| QUOTA(["2-session daily
+limit reached"])
+    VAL -->|clear| HOLD["Exclusive Hold
+PostgreSQL exclusion constraint
+5-minute expiry"]
+    HOLD --> CONF{"Confirm?"}
+    CONF -->|yes| PAY["Payment
+local / manual / gateway"]
+    PAY --> BOOK["Confirmed Booking
+Invoice + allocation saved"]
+    BOOK --> CHK["Check-in opens
+30 min before session"]
+    CONF -->|timeout / close| REL["Hold released immediately
+court freed for all users"]
+
+    subgraph SOCIAL["Friday Social Play"]
+        direction LR
+        SS["Single court
+reserved"] --> PS["Participant places
+up to 12  capacity trigger"]
+        PS --> WS["Waiting list
+if full"]
+    end
+
+    subgraph WAIT["Waiting List"]
+        WL["Worker finds
+earliest eligible"] --> OFF["Offer sent
+30-min accept window"]
+        OFF -->|accepted| BOOK
+        OFF -->|expired| NXT["Next in queue"]
+    end
+```
+
+**Instant Release on Modal Close:**
+- When a user opens checkout, a server-side `HOLD` locks the slot.
+- If the user clicks **Close**, clicks the backdrop, or hits Escape, an immediate cancellation mutation releases the slot in PostgreSQL, and availability refetches instantly so other players can book it right away without waiting 5 minutes.
 
 ---
 
-## 🔒 Security & Role-Based Access Control (RBAC)
+### 8.4 The Champions Shop
 
-The platform enforces strict role-based authorization in [`src/lib/access.ts`](file:///d:/ODOO-Sports-Club-System/src/lib/access.ts) on both server actions and API route handlers.
+**Catalogue:** 36 products across Tennis, Padel, Badminton, Cricket, Apparel and Accessories — with variants (size, colour, weight), realistic stock levels and sport-specific imagery.
 
-| Capability / Route | Public Visitor | MEMBER | KITCHEN | CASHIER | RECEPTION | OWNER |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| Browse Sports, Facilities, Pricing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Book Courts & Purchase Membership | ❌ | ✅ | ❌ | ❌ | ✅ (Walk-in) | ✅ |
-| View Personal Invoices & QR Card | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| Kitchen Preparation Queue | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| POS Dining & Counter Retail POS | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| Cash Shift Float Reconciliation | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| Court Calendar, Check-In & CRM | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Executive Reports & Financial CSV | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Staff Payroll & Business Settings | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING_PAYMENT : cart checkout
+    PENDING_PAYMENT --> PAID : payment confirmed
+    PAID --> PROCESSING : staff picks order
+    PROCESSING --> READY_FOR_PICKUP : pickup selected
+    PROCESSING --> DISPATCHED : delivery selected
+    READY_FOR_PICKUP --> FULFILLED : member collects
+    DISPATCHED --> FULFILLED : delivery confirmed
+    PENDING_PAYMENT --> CANCELLED : abandoned / staff cancel
+    PAID --> CANCELLED : staff cancel
+    PROCESSING --> CANCELLED : staff cancel
+    CANCELLED --> [*] : stock reservation released
+    FULFILLED --> [*]
+```
+
+- **Cart Isolation**: Carts are scoped per user account. Guest visitors never see a prior user's items, and guest items merge cleanly into the user's account upon signing in.
+- **Inventory Pool**: Online orders and counter checkout draw from the exact same inventory pool under atomic locking.
 
 ---
 
-## 🧪 Testing & Verification Suite
+### 8.5 Clubhouse Kitchen & Bar
 
-The repository contains an exhaustive test suite covering unit calculations, concurrency race conditions, and transactional integrity.
+**Tables:** 8 dining tables, configurable capacity.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> PENDING : waiter submits order
+    PENDING --> ACCEPTED : kitchen accepts
+    ACCEPTED --> COOKING : chef starts
+    COOKING --> READY : preparation done
+    READY --> SERVED : cashier marks served
+    SERVED --> [*]
+
+    PENDING --> CANCELLED : before cooking
+staff reason required
+    ACCEPTED --> CANCELLED : before cooking
+staff reason required
+    CANCELLED --> [*]
+
+    note right of PENDING
+        Guarded version prevents
+        concurrent stale overwrites
+    end note
+```
+
+- Amendments (items added after submission) create a new ticket revision and are clearly highlighted.
+- Concurrent state updates are protected with a guarded preparation version to prevent stale overwrites.
+- Tables close only when all tickets are served or cancelled and invoices are settled.
+
+---
+
+### 8.6 Reception & CRM
+
+```mermaid
+flowchart TD
+    PUB(["Public visitor"]) --> ENQ["Submit enquiry
+website contact form"]
+    ENQ --> LEAD["Lead saved
+DB transaction"]
+    LEAD --> NOTIF["Reception notified
+in-app immediately"]
+    NOTIF --> ASSIGN["Assign staff
+add notes"]
+    ASSIGN --> FOLLOW["Log follow-ups
+add quote"]
+    FOLLOW --> CONV{"Convert?"}
+    CONV -->|yes| INVITE["Invite email sent
+password reset link"]
+    INVITE --> VER["Account verifies email
+logs in"]
+    VER --> MEM["Reception processes
+membership checkout"]
+    CONV -->|no| CLOSE["Lead closed / archived
+history preserved"]
+
+    subgraph HISTORY["Lead history preserved"]
+        LEAD -.->|linked permanently| VER
+    end
+```
+
+---
+
+### 8.7 Shared Billing & Payments
+
+```mermaid
+flowchart LR
+    subgraph SOURCES["Invoice Sources"]
+        direction TB
+        SRC1["Membership
+checkout"]
+        SRC2["Court
+booking"]
+        SRC3["Shop
+order"]
+        SRC4["Clubhouse
+table bill"]
+    end
+
+    subgraph INVOICE["Invoice  immutable after issue"]
+        direction TB
+        INV["Invoice
+itemized lines
+price snapshot"]
+        ALLOC["Payment Allocation
+partial or full
+bounded under lock"]
+        CREDIT["Credits / Refunds
+separate entries"]
+    end
+
+    subgraph MODES["Payment Modes"]
+        direction TB
+        PM1["LOCAL_SIMULATED
+no funds move"]
+        PM2["MANUAL_RECORDED
+cash · card · UPI"]
+        PM3["GATEWAY_VERIFIED
+Razorpay captured"]
+    end
+
+    SOURCES --> INV
+    INV --> ALLOC
+    ALLOC --> CREDIT
+    MODES --> ALLOC
+
+    ALLOC --> BAL["Outstanding Balance
+invoice − allocations + credits"]
+```
+
+---
+
+### 8.8 Owner Reports & Administration
+
+**Financial reports** support Today / This Week / This Month / Custom date range:
+
+| Metric | How it is calculated |
+|---|---|
+| Invoiced Sales | Invoices issued within the date range |
+| Collections | Payments received within the date range, by method |
+| Credits | Credited amounts dated within range |
+| Refunds | Actual recorded refunds within range |
+| Outstanding | Older unpaid balances through the end date |
+
+- **Drill-down:** click any total to see the supporting records.
+- **Department breakdown:** membership, courts/social, shop, kitchen/bar.
+- **CSV export:** integer paise, escapes spreadsheet formula injection.
+- **Cash shift reconciliation:** Opening float + cash receipts − actual refunds − payouts = expected cash.
+- **Payroll:** Finalize immutable employee/pay/withholding snapshots. Staff view only their own records.
+
+---
+
+### 8.9 Background Worker & Emails
+
+```mermaid
+flowchart TD
+    DB[(PostgreSQL
+outbox table)] -->|SELECT FOR UPDATE
+SKIP LOCKED| CLAIM["Worker claims job
+sets lease timestamp"]
+    CLAIM --> EXEC["Execute job
+hold expiry · email · offer · reminder"]
+    EXEC -->|success| DONE["Mark DONE
+release lease"]
+    EXEC -->|failure| RETRY["Increment attempts
+schedule retry
+exponential backoff"]
+    RETRY -->|max retries| FAIL["Mark FAILED
+owner notification"]
+    RETRY -->|next attempt| CLAIM
+
+    subgraph STALE["Stale lease recovery"]
+        TIMEOUT["Lease expired
+worker crashed"] -->|background scan| CLAIM
+    end
+
+    subgraph OUTBOX["Transactional outbox"]
+        BIZ["Business event
+membership · booking · order"] -->|same DB transaction| DB
+    end
+```
+
+---
+
+## 9. Integration Modes
+
+### Payment
+
+| `PAYMENT_MODE` | Behaviour |
+|---|---|
+| `local` (default) | Simulated. No funds move. Receipts clearly labelled. |
+| `razorpay` | Real gateway. Requires all three Razorpay keys. |
+
+### Email
+
+See **[docs/SMTP.md](docs/SMTP.md)** for Gmail, Brevo, SendGrid and SES configuration.
+
+Verify any SMTP setup with:
+```bash
+npm run mail:verify -- you@example.com
+```
+
+---
+
+## 10. Database
+
+**PostgreSQL 18** on an isolated cluster at `127.0.0.1:5433` (does not touch the system cluster on 5432).
+
+### Critical database guarantees
+- **Court overlap** — PostgreSQL exclusion constraint (`EXCLUDE USING gist`) prevents two active bookings from overlapping on the same court.
+- **Daily quota** — Database trigger enforces the two-session-per-member-per-day limit under concurrency.
+- **Social capacity** — Trigger prevents more than the configured participant count; duplicate participation rejected.
+- **Stock reservation** — Atomic lock prevents overselling the same SKU.
+- **Invoice immutability** — DB guard prevents editing issued invoices or their line items.
+- **Allocation bounds** — Credits and allocations are bounded under invoice-level locks.
+- **Unique constraints** — Champions ID, idempotency keys, invoice origin keys are all unique at the DB level.
+
+---
+
+## 11. Testing & Verification
 
 ```bash
-# 1. Run strict TypeScript validation
-npm run typecheck
+# 1. Typecheck and code standards
+npm run lint             # ESLint checks
+npm run typecheck        # TypeScript strict verification
 
-# 2. Run ESLint code quality suite
-npm run lint
-
-# 3. Run automated unit test suite (Cart, Membership, SMTP, Auth)
+# 2. Automated Unit Tests (14 passing tests)
 npm test
 
-# 4. Run real-database integration tests (Requires PostgreSQL 18 on 5433)
-npm run test:integration
+# 3. High-Concurrency PostgreSQL Integration Suite
+npm run test:integration # Real-PostgreSQL concurrency tests
 
-# 5. Verify Next.js production build bundle
-npm run build
+# 4. Production Build Check
+npm run build            # Optimized production bundle
 ```
-
-### Verified High-Concurrency Scenarios
-- **Simultaneous Court Booking**: Two concurrent requests for the exact same court and slot; exactly one receives the hold, the second receives an explicit slot-taken error.
-- **Concurrent Daily Quota Limit**: Submitting multiple simultaneous bookings for a customer near their quota limit; excess bookings are rejected by database triggers.
-- **Final Social Place Race**: Multiple players attempting to join the last remaining spot in a Friday mixer; exactly one succeeds, others are offered waitlist placement.
-- **Last Item Stock Depletion**: Parallel checkout attempts on a single remaining inventory item; exactly one transaction claims the SKU, the other transaction rolls back safely.
-- **Duplicate Checkout Retries**: Repeatedly submitting identical idempotency keys returns the existing invoice without generating duplicate charges.
 
 ---
 
-## 🐳 Docker Deployment (Alternative)
+## 12. Docker
 
-For containerized environments with Docker installed:
-
-```bash
-# 1. Build and start containers in the background
+```sh
 docker compose up --build -d
-
-# 2. Seed database inside container
 docker compose run --rm app npm run db:seed
 ```
 
-The containerized stack boots PostgreSQL with persistent volume storage, runs database migrations automatically, and starts both the Next.js production server and the durable background worker under Docker healthchecks.
+Compose starts PostgreSQL with a persistent volume, applies migrations before app/worker startup, and health-checks both services.
 
 ---
 
-## 📜 Repository Structure
+## 13. LAN & Offline Operation
 
-```
-.
-├── prisma/
-│   ├── schema.prisma          # PostgreSQL relational schema (models, relations, enums)
-│   ├── seed.ts                # Idempotent database seeder with realistic demo data
-│   └── migrations/            # 7 versioned SQL migrations (triggers, exclusion constraints)
-├── src/
-│   ├── app/                   # Next.js App Router (pages, layouts, API route handlers)
-│   │   ├── (auth)/            # Login, registration, password reset flows
-│   │   ├── account/           # Customer portal (QR ID card, history, receipts)
-│   │   ├── book/              # Interactive court availability and booking grid
-│   │   ├── clubhouse/         # Restaurant overview and table dining
-│   │   ├── memberships/       # Membership plan comparisons and purchase flow
-│   │   ├── shop/              # E-commerce store, product variants, and cart checkout
-│   │   ├── staff/             # Restricted staff workspaces (Reception, POS, Kitchen, Admin)
-│   │   └── api/               # Authenticated REST endpoints with Zod validation
-│   ├── components/            # UI components (Radix primitives, Tailwind CSS)
-│   │   ├── courts-view.tsx    # Real-time interactive court scheduler
-│   │   ├── operations-ui.tsx  # Modal checkouts, payment actions, and history
-│   │   └── gateway-checkout.tsx # Razorpay payment integration component
-│   ├── lib/                   # Database client, Better Auth setup, access guards, utility functions
-│   ├── modules/               # Domain business logic services
-│   │   ├── billing/           # Double-entry ledger, invoice generation, payment allocation
-│   │   ├── bookings/          # Court reservation, exclusion locking, Friday social play
-│   │   ├── clubhouse/         # Table management, kitchen tickets, member tabs
-│   │   ├── membership/        # Subscription tiers, age restrictions, benefit calculation
-│   │   ├── shop/              # Product inventory, stock reservations, order fulfillment
-│   │   └── operations/        # Cash reconciliation, shift scheduling, staff payroll
-│   └── worker.ts              # Durable background daemon for outbox jobs and scheduled reminders
-├── tests/                     # Unit and integration test suites
-│   ├── cart.test.ts           # Shopping cart isolation and quantity tests
-│   ├── mail.test.ts           # SMTP configuration and diagnostic redaction tests
-│   ├── rules.test.ts          # Membership terms and pricing validation tests
-│   └── integration/           # High-concurrency PostgreSQL operations tests
-├── API.md                     # Complete REST API reference and idempotency contracts
-├── JUDGING.md                 # Step-by-step evaluator walkthrough and test journeys
-├── SPEC.md                    # Detailed business requirements and architectural specification
-└── package.json               # Project manifest and scripts
-```
+1. Set `BETTER_AUTH_URL` to the host's LAN IP (e.g. `http://192.168.1.10:3000`).
+2. Add the same origin to `TRUSTED_ORIGINS`.
+3. Restart app and worker.
+4. The app listens on `0.0.0.0`; PostgreSQL stays on loopback.
 
 ---
 
-## 📄 License & Intellectual Property
+## 14. Operational Policies
 
-Champions Club is private and proprietary software developed for the Champions Sports Club ecosystem. All photographic assets in `public/images/` are bundled under verified local licenses documented in [`public/images/ATTRIBUTION.md`](file:///d:/ODOO-Sports-Club-System/public/images/ATTRIBUTION.md).
+| Policy | Default | Editable by owner |
+|---|---|---|
+| Club timezone | Asia/Kolkata | No (UTC stored) |
+| Opening hours | 06:00-23:00 | Yes |
+| Booking window | 14 days ahead | Yes |
+| Checkout hold | 5 minutes | No |
+| Cancellation notice | 12 hours | Yes |
+| Waiting offer window | 30 minutes | Yes |
+| Social play capacity | 12 participants | Yes |
+| Social play fee | Rs 300 | Yes |
+| Delivery fee | Rs 100 | Yes |
+| Trial discount | 50% | Yes |
+| Member tab limit | Rs 5,000 | Yes |
+| Tab due period | 7 days | Yes |
+| Bar age requirement | 21+ | Deployment |
+| Membership reminder offsets | 7 days, 1 day, 0 days | Yes |
+| Reminder send time | 09:00 IST | Yes |
+| Low stock threshold | 5 or fewer units | No |
+| Default payroll withholding | 0% | Yes (per label) |
+
+---
+
+## 15. Judging Walkthrough
+
+1. **Landing page** — Explore the four sport panels (keyboard, mouse or touch). Browse facilities, membership prices, shop previews and the clubhouse section. Check mobile navigation at narrow widths.
+2. **Book a Court** — Select sport, date and hour, then confirm local checkout. Inspect the saved booking and receipt in My Account. Try a full slot for the waiting-list option. Try a maintenance-closed court to see the reason and alternatives.
+3. **Shop** — Browse 36 products, add variants to cart, choose pickup or delivery. Confirm checkout. In Inventory (cashier login), collect a pickup or dispatch a delivery; process a partial return.
+4. **Membership** — Sign in as `new`, `junior` or `expired`. Purchase or renew a membership. Accept the displayed policy. Reload and inspect the membership card, QR, history and receipt. No funds are collected.
+5. **Reception** — Sign in as `reception`. Search a member by email or QR. Inspect the daily calendar. Register a walk-in booking with manual payment.
+6. **CRM** — Submit an enquiry from the public contact form. Sign in as `reception` to see the notification, assign staff, log a follow-up and convert the lead to an account.
+7. **POS and Kitchen** — Sign in as `cashier`. Open a table, add items with notes, submit. In another tab sign in as `kitchen`: Accept → Cook → Ready. Back as cashier: mark served, settle and close the table.
+8. **Owner** — Business settings, membership plans, staff roles, local inbox. Financial report with drill-downs and CSV export. Cash shift reconciliation. Payroll — view Neha's demo payslip.
+9. **Security** — Try accessing a staff URL as a member. Try another member's receipt URL. APIs return 403 or 404 with no data disclosure.
+10. **Email** — Sign up with a new email. In owner's Local test inbox, open the verification link. Run `npm run worker` to mark mail delivered. Password reset works the same way.
+
+See **[JUDGING.md](JUDGING.md)** for the full connected walkthrough and all concurrency, reminder and reconciliation proofs.
+
+---
+
+## 16. Contributing
+
+When Git use is authorized, use a **feature branch** workflow:
+
+```bash
+git checkout -b feature/your-feature-name
+git commit -m "feat: descriptive message"
+git push origin feature/your-feature-name
+```
+
+**Never commit:**
+- `.env` or any file containing secrets
+- `.local/` (local database cluster)
+- `.next/` (build output)
+- `node_modules/`
+- `src/generated/` (generated Prisma client)
+
+**Reference documents:**
+
+| File | Purpose |
+|---|---|
+| [SPEC.md](SPEC.md) | Full product specification and acceptance criteria |
+| [API.md](API.md) | All endpoint contracts and idempotency headers |
+| [REQUIREMENTS.md](REQUIREMENTS.md) | Every specification area mapped to code, with explicit limits |
+| [JUDGING.md](JUDGING.md) | Demo walkthrough and concurrency proofs |
+| [docs/CHAMPIONS_CLUB_TECHNICAL_GUIDE.md](docs/CHAMPIONS_CLUB_TECHNICAL_GUIDE.md) | Comprehensive technical architecture and subsystem guide |
+| [docs/SMTP.md](docs/SMTP.md) | SMTP setup guide for email delivery |
+
+---
+
+*Champions Club — Built for the Odoo Hackathon.*
