@@ -2,6 +2,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { NetworkNotice } from "./safe-drafts";
+import { ActionNotice } from "./action-notice";
+import { PromptHost } from "./prompt-dialog";
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(
     () =>
@@ -15,6 +17,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       <NetworkNotice />
+      <PromptHost />
+      <ActionNotice />
       {children}
     </QueryClientProvider>
   );

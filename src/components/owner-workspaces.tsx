@@ -8,6 +8,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ReceiptLink, type Json } from "./operations-ui";
 import { ReportCharts } from "./report-charts";
+import { EmailHealth } from "./email-health";
 import type {
   financialReport,
   operationalReport,
@@ -1187,6 +1188,7 @@ export function DeliveryWorkspace() {
     action = useAdmin();
   return (
     <div className="space-y-4">
+      <EmailHealth />
       <div className="surface space-y-4">
         <h2 className="text-xl font-semibold">
           Membership reminders & delivery

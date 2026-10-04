@@ -285,6 +285,7 @@ model MailMessage {
   to        String
   subject   String
   body      String
+  html      String?
   mode      String
   membershipId String?
   status    String @default("QUEUED")

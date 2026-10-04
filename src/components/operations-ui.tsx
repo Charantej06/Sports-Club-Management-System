@@ -1,4 +1,6 @@
 "use client";
+import * as Dialog from "@radix-ui/react-dialog";
+import { notify } from "./action-notice";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -6,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { money } from "@/lib/utils";
 import { Button } from "./ui/button";
+import { promptText } from "./prompt-dialog";
 import {
   GatewayCheckout,
   GatewayHistory,
@@ -50,6 +53,7 @@ export function useAction() {
       setRetry(null);
       return result;
     },
+    onError: (error) => notify(error.message, true),
     onSuccess: () => {
       router.refresh();
       return client.invalidateQueries();
@@ -148,6 +152,11 @@ export function CheckoutHold({
     : null;
 
   return (
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onDone(); }}><Dialog.Portal>
+    <Dialog.Overlay className="fixed inset-0 z-50 bg-black/70" />
+    <Dialog.Content aria-describedby={undefined} className="fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl bg-white text-neutral-900 shadow-xl">
+    <Dialog.Title className="sr-only">Complete payment</Dialog.Title>
+    <Dialog.Close className="absolute right-4 top-2 z-10 rounded bg-white px-3 py-1 text-neutral-900" aria-label="Close checkout">Close</Dialog.Close>
     <div
       className="checkout-hold-card my-6 relative overflow-hidden rounded-xl border border-neutral-300 bg-white p-6 sm:p-8 text-neutral-900 shadow-sm"
       role="region"
@@ -157,7 +166,7 @@ export function CheckoutHold({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-4">
         <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-orange-800">
           <span className="size-2 rounded-full bg-orange-600" />
-          {area === "order" ? "Order Hold Active" : "Booking in progress"}
+          {area === "order" ? "Complete payment" : "Booking in progress"}
         </div>
         {holdExpiryFormatted && (
           <div className="flex items-center gap-2 rounded-md bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700 border border-neutral-200">
@@ -173,7 +182,7 @@ export function CheckoutHold({
         <div className="space-y-4">
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-neutral-950">
-              Review your {area === "order" ? "order" : "session"}
+              Complete your {area === "order" ? "order" : "session"}
             </h2>
             <p className="mt-1 text-xs text-neutral-600">
               Your selection is reserved while you complete checkout.
@@ -247,6 +256,7 @@ export function CheckoutHold({
                   targetId: hold.id,
                 }}
                 onDone={onDone}
+                autoStart
               />
             ) : (
               <Button
@@ -285,7 +295,7 @@ export function CheckoutHold({
                 )
               }
             >
-              {area === "order" ? "Release Hold" : "Cancel booking"}
+              {area === "order" ? "Cancel order" : "Cancel booking"}
             </Button>
           </div>
         </div>
@@ -293,6 +303,7 @@ export function CheckoutHold({
 
       <Feedback action={action} />
     </div>
+    </Dialog.Content></Dialog.Portal></Dialog.Root>
   );
 }
 export function History() {
@@ -361,10 +372,15 @@ export function History() {
     hold: Hold;
     eventId?: string;
   } | null>(null);
-  const cancel = (area: string, id: string, extra = {}) => {
-    const reason = window.prompt(
-      "Reason for cancellation (at least 5 characters)",
-    );
+  const cancel = async (area: string, id: string, extra = {}) => {
+    const reason = area === "waiting" ? "Left the waiting list" : await promptText({
+      title: area === "order" ? "Cancel this order?" : area === "social" ? "Cancel your social place?" : "Cancel this booking?",
+      description: "Cancellation rules and refunds still apply. Please give a reason for the club record.",
+      label: "Reason for cancelling",
+      placeholder: "e.g. Plans changed",
+      minLength: 5,
+      confirmLabel: area === "order" ? "Cancel order" : area === "social" ? "Cancel my place" : "Cancel booking",
+    });
     if (reason)
       action.mutate({
         area,
@@ -417,31 +433,12 @@ export function History() {
               {new Date(b.startsAt).toLocaleString("en-IN", {
                 timeZone: "Asia/Kolkata",
               })}{" "}
-              · {b.status}
+              · {b.status === "HOLD" ? "Payment pending" : b.status}
               {b.checkedInAt ? " · Checked in" : ""}
             </p>
             <p className="text-sm">{money(b.pricePaise || 0)}</p>
             <ReceiptLink id={b.invoiceId} />
-            <div className="flex flex-wrap gap-3">
-              {b.status === "HOLD" && (
-                <Button
-                  size="sm"
-                  onClick={() => setHold({ area: "booking", hold: b })}
-                >
-                  Review hold
-                </Button>
-              )}
-              {["HOLD", "CONFIRMED"].includes(b.status) && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={action.isPending}
-                  onClick={() => cancel("booking", b.id)}
-                >
-                  Cancel booking
-                </Button>
-              )}
-            </div>
+            <BookingActions booking={b} />
           </article>
         ))}
         {d.social.map((p) => (
@@ -465,7 +462,7 @@ export function History() {
                     setHold({ area: "social", eventId: p.eventId, hold: p })
                   }
                 >
-                  Review social hold
+                  Pay now
                 </Button>
               )}
               {["HOLD", "CONFIRMED"].includes(p.status) && (
@@ -547,7 +544,7 @@ export function History() {
                   size="sm"
                   onClick={() => setHold({ area: "order", hold: o })}
                 >
-                  Review order
+                  Pay now
                 </Button>
               )}
               {["HOLD", "PAID"].includes(o.status) && (
@@ -572,7 +569,7 @@ export function History() {
             className="mt-5 space-y-3 border-t border-current/10 pt-4"
           >
             <p>
-              {b.table.name} · {b.status} · Payment: {b.paymentStatus}
+              {b.table.name} · {b.status === "HOLD" ? "Payment pending" : b.status} · Payment: {b.paymentStatus}
               {b.tabEnabled ? " · Member tab" : ""}
             </p>
             {b.tickets.map((t) => (
@@ -594,4 +591,17 @@ export function History() {
       </section>
     </div>
   );
+}
+
+export function BookingActions({ booking }: { booking: { id: string; status: string; pricePaise?: number } }) {
+  const action = useAction();
+  const modes = usePaymentModes();
+  return <div className="mt-4 flex flex-wrap gap-3">
+    {booking.status === "HOLD" && (modes.data?.gateway && (booking.pricePaise ?? 0) > 0 ? <GatewayCheckout input={{kind:"booking",targetId:booking.id}} onDone={() => { void action.reset(); }} /> : <Button disabled={action.isPending || modes.isPending || !!modes.error || (!modes.data?.local && (booking.pricePaise ?? 0) > 0)} onClick={() => action.mutate({area:"booking",id:booking.id,input:{action:"confirm",method:"LOCAL"}}, {onSuccess: () => notify("Your booking is confirmed.")})}>{action.isPending ? "Confirming…" : (booking.pricePaise ?? 0) === 0 ? "Confirm free booking" : "Pay now · local test"}</Button>)}
+    {["HOLD","CONFIRMED"].includes(booking.status) && <Button variant="outline" disabled={action.isPending} onClick={async () => {
+      const reason = await promptText({title:"Cancel this booking?",description:"Cancellation rules and refunds still apply.",label:"Reason for cancelling",minLength:5,confirmLabel:"Cancel booking"});
+      if (reason) action.mutate({area:"booking",id:booking.id,input:{action:"cancel",reason}}, {onSuccess: () => notify("Booking cancelled. Any applicable credit or refund is recorded in your account.")});
+    }}>Cancel booking</Button>}
+    {modes.error && <p role="alert" className="field-error">{modes.error.message}</p>}
+  </div>;
 }

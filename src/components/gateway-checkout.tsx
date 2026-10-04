@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
+import { notify } from "./action-notice";
 import { Button } from "./ui/button";
 import { money, date } from "@/lib/utils";
 type CheckoutResponse = {
@@ -125,9 +126,10 @@ export function GatewayCheckout({
       buttonRef.current?.click();
     }
   }, [autoStart]);
+  function report(text: string) { setMessage(text); if (text) notify(text, true); }
   async function checkout() {
     setPending(true);
-    setMessage("");
+    report("");
     try {
       await loadCheckout();
       const serialized = JSON.stringify(input),
@@ -152,7 +154,7 @@ export function GatewayCheckout({
         modal: {
           ondismiss: () => {
             setPending(false);
-            setMessage(
+            report(
               "Checkout closed. No club confirmation has been recorded. Check My Account if a payment is processing.",
             );
           },
@@ -171,13 +173,14 @@ export function GatewayCheckout({
             await client.invalidateQueries();
             if (result.state === "COMPLETE") {
               setRetry(null);
+              notify("Payment verified. Your booking or purchase is confirmed.");
               onDone();
             } else
-              setMessage(
+              report(
                 "Payment was captured, but the checkout changed or expired. Staff must review it and arrange any repayment. Do not pay again.",
               );
           } catch (error) {
-            setMessage(
+            report(
               `${error instanceof Error ? error.message : "Verification pending."} Check My Account before attempting another payment.`,
             );
           } finally {
@@ -187,14 +190,14 @@ export function GatewayCheckout({
       });
       checkout.on("payment.failed", () => {
         setPending(false);
-        setMessage(
+        report(
           "The provider reported a failed payment. No club confirmation was recorded.",
         );
       });
       checkout.open();
     } catch (error) {
       setPending(false);
-      setMessage(
+      report(
         error instanceof Error ? error.message : "Unable to open checkout.",
       );
     }

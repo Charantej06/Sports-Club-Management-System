@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,7 +14,7 @@ import { profileSchema } from "@/modules/account/validation";
 import { activeTerm, type MeData } from "@/modules/account/types";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { History } from "./operations-ui";
+import { History, BookingActions } from "./operations-ui";
 import { ClubMark } from "./site-header";
 import type { z } from "zod";
 export function Account() {
@@ -26,6 +27,8 @@ export function Account() {
   if (me.error || !me.data) return <div className="site-width py-24"><p role="alert">{me.error?.message}</p><Button onClick={() => me.refetch()} className="mt-6">Try again</Button></div>;
   const { user, memberships, invoices } = me.data;
   const current = activeTerm(memberships);
+  const now = Date.now();
+  const activeBookings = me.data.bookings.filter(b => new Date(b.endsAt).getTime() > now && (b.status === "CONFIRMED" || (b.status === "HOLD" && !!b.holdUntil && new Date(b.holdUntil).getTime() > now))).sort((a,b) => +new Date(b.createdAt) - +new Date(a.createdAt));
   const expired = !current && memberships.length > 0;
   const outstanding = invoices.reduce((sum, inv) => sum + Math.max(0,inv.totalPaise - inv.allocations.reduce((s,a) => s + a.amountPaise,0) - inv.credits.reduce((s,c) => s+c.amountPaise,0)),0);
   return <section className="site-width py-14 md:py-20"><div className="flex flex-wrap items-end justify-between gap-6"><div><p className="eyebrow mb-5 text-orange-400">My Account</p><h1 className="section-title">Hey, {user.name.split(" ")[0]}.</h1><p className="mt-4 text-sm text-neutral-400">Your club, at a glance. <span className="ml-2 text-neutral-500">{user.championsId}</span></p></div><div className="flex gap-3">{user.role !== "MEMBER" && <Button asChild variant="outline"><Link href="/staff">Staff desk<ArrowUpRight size={16}/></Link></Button>}<Button variant="ghost" onClick={async () => { await authClient.signOut(); client.clear(); router.push("/"); router.refresh(); }}><LogOut size={16}/>Sign out</Button></div></div>
@@ -33,6 +36,18 @@ export function Account() {
     {current && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-neutral-500"><span>Your QR identifies you. It does not authorize payment.</span><button className="text-neutral-300 underline" disabled={cardMutation.isPending} onClick={() => cardMutation.mutate(card.data?.revoked ? "POST" : "DELETE")}>{card.data?.revoked ? "Issue a new card" : "Revoke card"}</button></div>}{cardMutation.error && <p role="alert" className="field-error mt-3">{cardMutation.error.message}</p>}{card.error && <p role="alert" className="field-error mt-3">{card.error.message}</p>}
     {current && <Button asChild className="mt-6"><Link href="/memberships">Renew membership</Link></Button>}</div>
     <div className="rounded-xl border border-white/10 p-6 md:p-8"><ProfileForm user={user}/></div></div>
+    <section className="mt-10 rounded-xl border border-orange-500/50 bg-orange-500/5 p-6 md:p-8" aria-labelledby="active-bookings-title">
+      <div className="flex flex-wrap items-center justify-between gap-4"><div><p className="eyebrow text-orange-400">Your next games</p><h2 id="active-bookings-title" className="mt-2 text-2xl font-semibold">Active bookings</h2></div><Button asChild><a href="#booking-history" onClick={(event) => {
+        event.preventDefault();
+        const section = document.getElementById("booking-history");
+        const details = section?.querySelector("details");
+        if (details) details.open = true;
+        window.history.replaceState(null, "", "#booking-history");
+        section?.scrollIntoView({ block: "start" });
+        details?.querySelector("summary")?.focus({ preventScroll: true });
+      }}>Manage your bookings<ArrowUpRight size={18}/></a></Button></div>
+      {activeBookings.length ? <div className="mt-6 grid gap-4 sm:grid-cols-2">{activeBookings.map(b => <article key={b.id} className="rounded-lg border border-white/15 bg-black/20 p-5"><div className="flex flex-wrap justify-between gap-3"><h3 className="text-lg font-semibold">{b.court.name}</h3><span className="text-sm text-orange-300">{b.status === "HOLD" ? "Payment pending" : "Confirmed"}</span></div><p className="mt-3 text-sm text-neutral-300">{new Date(b.startsAt).toLocaleString("en-IN", {timeZone:"Asia/Kolkata", day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit"})}</p><p className="mt-1 text-sm text-neutral-400">Until {new Date(b.endsAt).toLocaleTimeString("en-IN", {timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit"})} IST</p>{b.status === "HOLD" && <p className="mt-3 text-sm text-orange-300">Complete payment to confirm this booking.</p>}<BookingActions booking={b}/></article>)}</div> : <div className="mt-5 flex flex-wrap items-center justify-between gap-4"><p className="text-neutral-400">No active court bookings. Your next game starts here.</p><Button asChild variant="outline"><Link href="/book">Book a court<ArrowUpRight size={16}/></Link></Button></div>}
+    </section>
     <div className="mt-12 space-y-8">
     <HistoryPreview title="Membership history" empty={!memberships.length} emptyText="Your membership history will appear here." preview={<div className="divide-y divide-white/10">{memberships.slice(0,3).map(t => <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm"><div><p>{t.planSnapshot.name}</p><p className="mt-1 text-xs text-neutral-400">{date(t.startsAt)}  |  {date(new Date(+new Date(t.endsAt)-1))}</p></div><span>{money(t.pricePaise)}</span></div>)}</div>}>
   <div className="mt-6"><h2 className="text-2xl">Your membership journey</h2>{!memberships.length ? <p className="soft-text mt-6">Your first membership is waiting for you.</p> : <div className="mt-7 space-y-4">{memberships.map(t => <article key={t.id} className="flex flex-wrap items-center justify-between gap-4 rounded border border-white/10 p-6"><div><h3 className="font-medium">{t.planSnapshot.name}</h3><p className="mt-2 text-xs text-neutral-500">{date(t.startsAt)} — {date(new Date(+new Date(t.endsAt)-1))}</p></div><span className="text-sm">{money(t.pricePaise)}</span><span className="text-xs text-orange-300">{t.status === "SUPERSEDED" ? "Plan changed" : new Date(t.startsAt) > new Date() ? "Upcoming term" : new Date(t.endsAt) <= new Date() ? "Expired" : "Active"}</span></article>)}</div>}</div>
@@ -40,12 +55,23 @@ export function Account() {
     <HistoryPreview title="Receipts & statement" empty={!invoices.length} emptyText="Your receipts will appear here after your first purchase." preview={<div><p className="py-4 text-sm text-neutral-400">Outstanding balance <span className="ml-3 text-white">{money(Math.max(0,outstanding))}</span></p><div className="divide-y divide-white/10">{invoices.slice(0,3).map(inv => <Link key={inv.id} href={`/account/receipts/${inv.id}`} className="flex items-center justify-between gap-4 py-4 text-sm hover:text-orange-400"><div><p>{inv.number}</p><p className="mt-1 text-xs text-neutral-400">{date(inv.issuedAt)}  |  {inv.department.toLowerCase()}</p></div><span>{money(inv.totalPaise)}</span></Link>)}</div></div>}>
   <div className="mt-6"><div className="flex flex-wrap justify-between gap-6"><h2 className="text-2xl">Receipts & statement</h2><span className="text-sm text-neutral-400">Outstanding: {money(Math.max(0,outstanding))}</span></div>{!invoices.length ? <p className="soft-text mt-7">Your receipts will appear here after your first purchase.</p> : <div className="mt-7 space-y-4">{invoices.map(inv => <Link key={inv.id} href={`/account/receipts/${inv.id}`} className="flex flex-wrap items-center justify-between gap-4 rounded border border-white/10 p-6 transition-colors hover:bg-white/5"><div><h3 className="text-sm">{inv.number}</h3><p className="mt-2 text-xs text-neutral-500">{inv.department.toLowerCase()} · {date(inv.issuedAt)}</p></div><div className="text-right"><p>{money(inv.totalPaise)}</p><p className="mt-2 text-xs text-neutral-500">{inv.allocations.some(a => a.payment.source === "LOCAL_SIMULATED") ? "Local simulated payment" : "Recorded payment"}</p></div><ArrowUpRight size={18}/></Link>)}</div>}</div>
     </HistoryPreview>
-    <HistoryPreview title="Bookings & purchases" empty={false} emptyText="Your bookings and purchases will appear here." preview={<div className="grid gap-6 py-4 sm:grid-cols-2"><div><h3 className="text-sm text-neutral-400">Recent bookings</h3>{me.data.bookings.slice(0,3).map(b => <div key={b.id} className="mt-4 text-sm"><p>{b.court.name}</p><p className="mt-1 text-xs text-neutral-400">{date(b.startsAt)}  |  {b.status.toLowerCase().replaceAll("_", " ")}</p></div>)}{!me.data.bookings.length && <p className="mt-4 text-sm text-neutral-400">No bookings yet.</p>}</div><div><h3 className="text-sm text-neutral-400">Recent purchases</h3>{me.data.orders.slice(0,3).map(o => <div key={o.id} className="mt-4 text-sm"><p>Shop order</p><p className="mt-1 text-xs text-neutral-400">{date(o.createdAt)}  |  {o.status.toLowerCase().replaceAll("_", " ")}</p></div>)}{!me.data.orders.length && <p className="mt-4 text-sm text-neutral-400">No purchases yet.</p>}</div></div>}><History/></HistoryPreview>
+    <HistoryPreview id="booking-history" title="Bookings & purchases" empty={false} emptyText="Your bookings and purchases will appear here." preview={<div className="grid gap-6 py-4 sm:grid-cols-2"><div><h3 className="text-sm text-neutral-400">Recent bookings</h3>{me.data.bookings.slice(0,3).map(b => <div key={b.id} className="mt-4 text-sm"><p>{b.court.name}</p><p className="mt-1 text-xs text-neutral-400">{date(b.startsAt)}  |  {b.status.toLowerCase().replaceAll("_", " ")}</p></div>)}{!me.data.bookings.length && <p className="mt-4 text-sm text-neutral-400">No bookings yet.</p>}</div><div><h3 className="text-sm text-neutral-400">Recent purchases</h3>{me.data.orders.slice(0,3).map(o => <div key={o.id} className="mt-4 text-sm"><p>Shop order</p><p className="mt-1 text-xs text-neutral-400">{date(o.createdAt)}  |  {o.status.toLowerCase().replaceAll("_", " ")}</p></div>)}{!me.data.orders.length && <p className="mt-4 text-sm text-neutral-400">No purchases yet.</p>}</div></div>}><History/></HistoryPreview>
     </div>
   </section>;
 }
-function HistoryPreview({ title, preview, children, empty, emptyText }: { title: string; preview: React.ReactNode; children: React.ReactNode; empty: boolean; emptyText: string }) {
-  return <section className="rounded-xl border border-orange-500/60 bg-orange-500/[0.03] p-6 md:p-8"><h2 className="text-xl">{title}</h2>{empty ? <p className="mt-4 text-sm text-neutral-400">{emptyText}</p> : <div className="group mt-2"> <div className="group-has-[details[open]]:hidden">{preview}</div><details><summary className="cursor-pointer py-3 text-sm text-orange-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-400"><span className="group-has-[details[open]]:hidden">View full {title.toLowerCase()}</span><span className="hidden group-has-[details[open]]:inline">Show less</span></summary><div>{children}</div></details></div>}</section>;
+function HistoryPreview({ id, title, preview, children, empty, emptyText }: { id?: string; title: string; preview: React.ReactNode; children: React.ReactNode; empty: boolean; emptyText: string }) {
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const expand = () => {
+      if (id && window.location.hash === `#${id}` && detailsRef.current) {
+        detailsRef.current.open = true;
+        detailsRef.current.closest("section")?.scrollIntoView({ block: "start" });
+      }
+    };
+    expand(); window.addEventListener("hashchange", expand);
+    return () => window.removeEventListener("hashchange", expand);
+  }, [id]);
+  return <section id={id} className="scroll-mt-24 rounded-xl border border-orange-500/60 bg-orange-500/[0.03] p-6 md:p-8"><h2 className="text-xl">{title}</h2>{empty ? <p className="mt-4 text-sm text-neutral-400">{emptyText}</p> : <div className="group mt-2"> <div className="group-has-[details[open]]:hidden">{preview}</div><details ref={detailsRef}><summary className="cursor-pointer py-3 text-sm text-orange-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-400"><span className="group-has-[details[open]]:hidden">View full {title.toLowerCase()}</span><span className="hidden group-has-[details[open]]:inline">Show less</span></summary><div>{children}</div></details></div>}</section>;
 }
 function ProfileForm({ user }: { user: MeData["user"] }) {
   const client = useQueryClient();

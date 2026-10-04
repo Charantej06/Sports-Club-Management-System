@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useItemDraft } from "./safe-drafts";
+import { promptText } from "./prompt-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { api } from "@/lib/api-client";
@@ -477,8 +478,8 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
                       size="sm"
                       variant="outline"
                       disabled={action.isPending}
-                      onClick={() => {
-                        const r = reason();
+                      onClick={async () => {
+                        const r = await promptText({ title: "Cancel this booking?", label: "Reason for cancelling", minLength: 5, confirmLabel: "Cancel booking" });
                         if (r)
                           action.mutate({
                             area: "booking",
@@ -533,8 +534,8 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  const r = reason();
+                onClick={async () => {
+                  const r = await promptText({ title: "Cancel this social event?", label: "Reason for cancelling", minLength: 5, confirmLabel: "Cancel event and credit participants" });
                   if (r)
                     action.mutate({
                       area: "social",
@@ -1190,8 +1191,8 @@ export function Inventory() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    const r = reason();
+                  onClick={async () => {
+                    const r = await promptText({ title: "Cancel this order?", label: "Reason for cancelling", minLength: 5, confirmLabel: "Cancel order" });
                     if (r)
                       action.mutate({
                         area: "order",
@@ -1563,8 +1564,8 @@ function BillControls({
                     size="sm"
                     variant="outline"
                     disabled={action.isPending || b.status !== "OPEN"}
-                    onClick={() => {
-                      const r = reason();
+                    onClick={async () => {
+                      const r = await promptText({ title: "Remove this kitchen item?", label: "Reason for removing", minLength: 5, confirmLabel: "Remove item" });
                       if (r)
                         action.mutate({
                           area: "bill",

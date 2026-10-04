@@ -1,5 +1,6 @@
 "use client";
 
+import { notify } from "./action-notice";
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useMemo } from "react";
@@ -285,10 +286,10 @@ export function CourtsView({
                       {data.settings.dailySessionLimit} sessions daily quota
                     </span>
                     <Link
-                      href="/account"
-                      className="ml-auto inline-flex items-center gap-1 font-semibold text-orange-600 hover:text-orange-700 hover:underline"
+                      href="/account#booking-history"
+                      className="mt-2 inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-lg bg-orange-600 px-5 py-3 text-base font-bold text-white shadow-sm transition-colors hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
                     >
-                      Manage your bookings <ArrowRight className="size-3.5" />
+                      Manage your bookings <ArrowRight className="size-5" />
                     </Link>
                   </div>
                 </div>
@@ -523,8 +524,11 @@ export function CourtsView({
                               <button
                                 key={s.hour}
                                 type="button"
-                                disabled={action.isPending || !!hold}
-                                onClick={() => reserve(c.id, s.hour)}
+                                disabled={action.isPending}
+                                onClick={() => {
+                                  if (hold) { notify("Finish or close your current payment before choosing another session.", true); return; }
+                                  reserve(c.id, s.hour);
+                                }}
                                 aria-label={`${c.name}, ${day}, ${displayHour(s.hour)}, ${isSelected ? "selected for checkout" : "available to book"}`}
                                 aria-pressed={isSelected}
                                 className={`group relative flex flex-col items-center justify-center rounded-xl border p-3 text-center transition-all ${isSelected ? "border-orange-500 bg-orange-50/40 shadow-xs" : "border-neutral-300 bg-white hover:border-orange-500 hover:bg-orange-50/40 hover:shadow-xs active:scale-[0.98]"}`}
@@ -540,9 +544,10 @@ export function CourtsView({
                           }
 
                           return (
-                            <div
+                            <button
+                              type="button"
+                              onClick={() => notify(s.reason || (s.elapsed ? "This session has already started. Choose a later time." : "This court is unavailable at this time. Choose another session."), true)}
                               key={s.hour}
-                              aria-disabled="true"
                               aria-label={`${c.name}, ${day}, ${displayHour(s.hour)}, unavailable`}
                               className="flex flex-col items-center justify-center rounded-xl border border-neutral-200 bg-neutral-100/70 p-3 text-center opacity-60"
                             >
@@ -552,7 +557,7 @@ export function CourtsView({
                               <span className="mt-1 text-[10px] uppercase tracking-wider text-neutral-500 font-medium">
                                 Unavailable
                               </span>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>

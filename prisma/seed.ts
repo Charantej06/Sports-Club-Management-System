@@ -55,21 +55,21 @@ const catalogue: [string, string, string, string, number, string, boolean?][] = 
   ["club-duffel", "Weekend Sports Duffel", "all", "Bags", 2499, "bag"],
   ["club-rope", "Speed Training Jump Rope", "all", "Accessories", 499, "grip"],
 ];
-const menus: [string, string, string, number, boolean][] = [
-  ["avocado-toast", "Avocado on sourdough", "Breakfast", 320, true],
-  ["omelette", "Three-egg club omelette", "Breakfast", 280, false],
-  ["smoothie", "Berry recovery smoothie", "Drinks", 240, true],
-  ["cold-coffee", "House cold coffee", "Drinks", 180, true],
-  ["lemonade", "Fresh lime & mint", "Drinks", 140, true],
-  ["salad", "Green bowl with grilled paneer", "Kitchen", 380, true],
-  ["burger", "Club chicken burger", "Kitchen", 420, false],
-  ["pasta", "Roasted tomato penne", "Kitchen", 360, true],
-  ["sandwich", "Courtside grilled sandwich", "Kitchen", 260, true],
-  ["fries", "Sea salt fries", "Small plates", 190, true],
-  ["hummus", "Hummus & warm pita", "Small plates", 280, true],
-  ["coffee", "Espresso / Americano", "Drinks", 120, true],
-  ["beer", "Craft lager · 330 ml", "Bar", 350, true],
-  ["mocktail", "Orange & rosemary cooler", "Bar", 260, true],
+const menus: [string, string, string, number, boolean, string][] = [
+  ["avocado-toast", "Avocado on sourdough", "Breakfast", 320, true, "clubhouse/menu/avocado-toast.jpg"],
+  ["omelette", "Three-egg club omelette", "Breakfast", 280, false, "clubhouse/menu/omelette.jpg"],
+  ["smoothie", "Berry recovery smoothie", "Drinks", 240, true, "clubhouse/menu/smoothie.jpg"],
+  ["cold-coffee", "House cold coffee", "Drinks", 180, true, "clubhouse/menu/cold-coffee.jpg"],
+  ["lemonade", "Fresh lime & mint", "Drinks", 140, true, "clubhouse/menu/smoothie.jpg"],
+  ["salad", "Green bowl with grilled paneer", "Kitchen", 380, true, "clubhouse/menu/salad.jpg"],
+  ["burger", "Club chicken burger", "Kitchen", 420, false, "clubhouse/menu/burger.jpg"],
+  ["pasta", "Roasted tomato penne", "Kitchen", 360, true, "clubhouse/menu/pasta.jpg"],
+  ["sandwich", "Courtside grilled sandwich", "Kitchen", 260, true, "clubhouse/menu/sandwich.jpg"],
+  ["fries", "Sea salt fries", "Small plates", 190, true, "clubhouse/menu/fries.jpg"],
+  ["hummus", "Hummus & warm pita", "Small plates", 280, true, "clubhouse/menu/hummus.jpg"],
+  ["coffee", "Espresso / Americano", "Drinks", 120, true, "clubhouse/menu/coffee.jpg"],
+  ["beer", "Craft lager · 330 ml", "Bar", 350, true, "clubhouse/menu/cold-coffee.jpg"],
+  ["mocktail", "Orange & rosemary cooler", "Bar", 260, true, "clubhouse/menu/smoothie.jpg"],
 ];
 async function main() {
   await db.clubSettings.upsert({ where: { id: "club" }, create: { id: "club" }, update: {} });
@@ -89,7 +89,7 @@ async function main() {
       await db.productVariant.upsert({ where: { id: variantId }, create: { id: variantId, productId: id, sku: `CC-${id.toUpperCase()}-${n}`, label, pricePaise: price * 100, stock: 8 + (index * 7 + n) % 24 }, update: {} });
     }
   }
-  for (const [id, name, category, price, vegetarian] of menus) await db.menuItem.upsert({ where: { id }, create: { id, name, category, pricePaise: price * 100, vegetarian, description: "Freshly prepared at your clubhouse.", available: id !== "omelette" }, update: {} });
+  for (const [id, name, category, price, vegetarian, image] of menus) await db.menuItem.upsert({ where: { id }, create: { id, name, category, pricePaise: price * 100, vegetarian, description: "Freshly prepared at your clubhouse.", available: id !== "omelette", image: `/images/${image}` }, update: { image: `/images/${image}` } });
   for (let n = 1; n <= 8; n++) await db.diningTable.upsert({ where: { id: `table-${n}` }, create: { id: `table-${n}`, name: `Table ${n}`, capacity: n < 5 ? 4 : 6 }, update: {} });
   const password = await hashPassword("Champions2026!");
   const users: [string, string, Role, string][] = [

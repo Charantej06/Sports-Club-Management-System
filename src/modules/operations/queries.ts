@@ -75,7 +75,7 @@ export async function operationsData(
       db.reservation.findMany({
         where: { userId: actor.id },
         include: { court: { select: { name: true } } },
-        orderBy: { startsAt: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 100,
       }),
       db.socialParticipant.findMany({
