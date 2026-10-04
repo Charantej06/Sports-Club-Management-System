@@ -7,7 +7,7 @@
 
 const BASE_URL = process.env.BETTER_AUTH_URL || "http://localhost:3000";
 
-function shell(content: string, preheader = "") {
+export function shell(content: string, preheader = "") {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

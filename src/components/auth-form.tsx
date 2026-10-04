@@ -41,9 +41,11 @@ type AnyForm = SignupForm & ForgotForm;
 export function AuthForm({
   mode,
   emailMode = "local",
+  defaultEmail = "",
 }: {
   mode: "login" | "signup" | "forgot";
   emailMode?: "local" | "smtp";
+  defaultEmail?: string;
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
@@ -65,7 +67,7 @@ export function AuthForm({
     formState: { errors, isSubmitting },
   } = useForm<AnyForm>({
     resolver,
-    defaultValues: { name: "", password: "", email: "", dateOfBirth: "" },
+    defaultValues: { name: "", password: "", email: defaultEmail, dateOfBirth: "" },
   });
 
   async function submit(data: AnyForm) {

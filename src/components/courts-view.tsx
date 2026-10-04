@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import * as Dialog from "@radix-ui/react-dialog";
+import { EnquiryForm } from "./enquiry-form";
 import Image from "next/image";
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -13,6 +15,7 @@ import {
   Info,
   CheckCircle2,
   Wrench,
+  X,
 } from "lucide-react";
 import type { publicData } from "@/modules/public/queries";
 import { money } from "@/lib/utils";
@@ -63,10 +66,12 @@ export function CourtsView({
   data,
   initialSport,
   trial,
+  signedIn = true,
 }: {
   data: Awaited<ReturnType<typeof publicData>>;
   initialSport: string;
   trial: boolean;
+  signedIn?: boolean;
 }) {
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: data.settings.timezone,
@@ -85,6 +90,7 @@ export function CourtsView({
     area: "booking" | "social";
     hold: Hold;
     eventId?: string;
+    autoPay?: boolean;
   } | null>(null);
 
   const action = useAction();
@@ -92,6 +98,8 @@ export function CourtsView({
   const client = useQueryClient();
   const modes = usePaymentModes();
   const [booked, setBooked] = useState<Booked | null>(null);
+  // Visitors without an account are never dead-ended: they can sign in, or leave details and the club books it for them.
+  const [ask, setAsk] = useState<{ what: string; when: string; sport: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [bookError, setBookError] = useState<string | null>(null);
   const selected = data.sports.find((s) => s.id === sport) || data.sports[0];
@@ -134,7 +142,7 @@ export function CourtsView({
   ) => {
     const total = held.totalPaise ?? held.pricePaise ?? 0;
     if (modes.data?.gateway && total > 0) {
-      setHold({ area, hold: held, eventId });
+      setHold({ area, hold: held, eventId, autoPay: true });
       return;
     }
     const target = `/api/operations/${area}/${eventId || held.id}`;
@@ -172,6 +180,7 @@ export function CourtsView({
     }
   };
 
+  const askClub = (what: string, when: string) => setAsk({ what, when, sport: sport });
   const reserve = (courtId: string, courtName: string, hour: number, minute: number) =>
     guarded(`${courtId}-${hour}-${minute}`, async () => {
       const held = (await action.mutateAsync({ area: "booking", input: { courtId, day, hour, minute, trial } })) as unknown as Hold;
@@ -703,7 +712,7 @@ export function CourtsView({
                                 key={`${s.hour}-${s.minute}`}
                                 type="button"
                                 disabled={!!busy || modes.isPending}
-                                onClick={() => reserve(c.id, c.name, s.hour, s.minute)}
+                                onClick={() => signedIn ? reserve(c.id, c.name, s.hour, s.minute) : askClub(c.name, `${formattedSelectedDate}, ${displayTime(s.hour, s.minute)}`)}
                                 aria-busy={busy === `${c.id}-${s.hour}-${s.minute}`}
                                 aria-label={`${c.name}, ${day}, ${displayTime(s.hour, s.minute)}, book now`}
                                 className="group relative flex flex-col items-center justify-center rounded-xl border border-neutral-300 bg-white p-3 text-center transition-all hover:border-orange-500 hover:bg-orange-50/40 hover:shadow-xs active:scale-[0.98]"
@@ -725,10 +734,12 @@ export function CourtsView({
                                 type="button"
                                 disabled={!!busy || action.isPending}
                                 onClick={() =>
-                                  action.mutate({
-                                    area: "waiting",
-                                    input: { courtId: c.id, day, hour: s.hour, minute: s.minute },
-                                  })
+                                  !signedIn
+                                    ? askClub(`${c.name} (join the waiting list)`, `${formattedSelectedDate}, ${displayTime(s.hour, s.minute)}`)
+                                    : action.mutate({
+                                        area: "waiting",
+                                        input: { courtId: c.id, day, hour: s.hour, minute: s.minute },
+                                      })
                                 }
                                 aria-label={`${c.name}, ${day}, ${displayTime(s.hour, s.minute)}, full, click to join waitlist`}
                                 className="group relative flex flex-col items-center justify-center rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-3 text-center transition-all hover:bg-amber-100/60 active:scale-[0.98]"
@@ -892,7 +903,9 @@ export function CourtsView({
                         }`}
                         disabled={!!busy || action.isPending || modes.isPending}
                         onClick={() =>
-                          e.remaining
+                          !signedIn
+                            ? askClub(e.title, new Date(e.startsAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))
+                            : e.remaining
                             ? joinSocial(e)
                             : action.mutate({
                                 area: "waiting",
@@ -923,6 +936,32 @@ export function CourtsView({
           </section>
         </div>
       </div>
+      <Dialog.Root open={!!ask} onOpenChange={(open) => !open && setAsk(null)}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[92vh] w-[calc(100%-32px)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-white/15 bg-[#141414] p-7 text-white md:p-9">
+            <Dialog.Title className="pr-8 text-2xl font-medium tracking-tight">{ask?.what}</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-neutral-400">{ask?.when}. Sign in to book it instantly, or leave your details and the front desk will arrange it and confirm with you.</Dialog.Description>
+            <Dialog.Close aria-label="Close" className="absolute right-4 top-4 p-1"><X size={19} /></Dialog.Close>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button asChild><Link href="/login">Sign in to book</Link></Button>
+              <Button asChild variant="outline"><Link href="/signup">Create a free account</Link></Button>
+            </div>
+            <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-widest text-neutral-500"><span className="h-px flex-1 bg-white/10" />or<span className="h-px flex-1 bg-white/10" /></div>
+            {ask && (
+              <EnquiryForm
+                key={ask.what + ask.when}
+                sports={data.sports}
+                sport={ask.sport}
+                interest={trial ? "TRIAL" : "BOOKING"}
+                askInterest={false}
+                defaultMessage={`${trial ? "I'd like to book my trial session" : "I'd like to book"}: ${ask.what}, ${ask.when}.`}
+                submitLabel="Ask the club to book it for me"
+              />
+            )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </section>
   );
 }

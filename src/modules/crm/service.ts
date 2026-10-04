@@ -1,4 +1,6 @@
-import { isTermMonths, termDays, termPrice, type TermMonths } from "@/modules/membership/terms";
+import { isTermMonths, termDays, termLabel, termPrice, type TermMonths } from "@/modules/membership/terms";
+import { enqueueMail } from "@/modules/mail/outbox";
+import { quoteEmail } from "@/modules/mail/notifications";
 import { randomUUID, randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { z } from "zod";
@@ -10,6 +12,7 @@ import {
   job,
   roles,
   type Actor,
+  type Tx,
 } from "@/modules/operations/core";
 export const crmSchema = z.discriminatedUnion("action", [
   z
@@ -31,7 +34,7 @@ export const crmSchema = z.discriminatedUnion("action", [
   z
     .object({
       action: z.literal("status"),
-      status: z.enum(["NEW", "CONTACTED", "LOST"]),
+      status: z.enum(["NEW", "CONTACTED", "QUOTED", "LOST"]),
     })
     .strict(),
   z
@@ -43,10 +46,32 @@ export const crmSchema = z.discriminatedUnion("action", [
         .int()
         .refine(isTermMonths, "Choose 1, 3 or 12 months.")
         .default(1),
+      // Email the quote to the visitor straight away (with a link to view it and join).
+      send: z.boolean().default(true),
     })
     .strict(),
+  z.object({ action: z.literal("emailQuote"), quoteId: z.string().min(1) }).strict(),
   z.object({ action: z.literal("convert") }).strict(),
 ]);
+type QuoteRow = { id: string; planId: string; totalPaise: number; validUntil: Date; token: string; snapshot: unknown };
+/** Emails a quote with an unguessable public link; the visitor needs no account to read it. */
+async function emailQuote(tx: Tx, lead: { name: string; email: string }, q: QuoteRow) {
+  const snap = q.snapshot as { name: string; months?: number; durationDays: number; courtDiscountBps: number; shopDiscountBps: number; foodDiscountBps: number; freeSessionsWeek: number };
+  await enqueueMail(tx, {
+    ...quoteEmail({
+      name: lead.name,
+      plan: snap.name,
+      term: termLabel(snap.months, snap.durationDays),
+      totalPaise: q.totalPaise,
+      validUntil: q.validUntil,
+      url: `${process.env.BETTER_AUTH_URL || "http://localhost:3000"}/quote/${q.token}`,
+      benefits: [`${snap.courtDiscountBps / 100}% off courts`, `${snap.shopDiscountBps / 100}% off the shop`, `${snap.foodDiscountBps / 100}% off the clubhouse`, ...(snap.freeSessionsWeek ? [`${snap.freeSessionsWeek} free sessions a week`] : [])],
+    }),
+    to: lead.email,
+  });
+  await tx.leadQuote.update({ where: { id: q.id }, data: { sentAt: new Date() } });
+  return true;
+}
 export function actLead(
   actor: Actor,
   key: string,
@@ -134,9 +159,19 @@ export function actLead(
             },
             totalPaise: price.totalPaise,
             validUntil: new Date(Date.now() + 7 * 86400000),
+            token: randomBytes(18).toString("hex"),
           },
         });
-        note = "Quote saved: " + q.id;
+        if (["NEW", "CONTACTED"].includes(lead.status))
+          await tx.lead.update({ where: { id }, data: { status: "QUOTED" } });
+        const emailed = (input.send ?? true) ? await emailQuote(tx, lead, q) : false;
+        note = `Quote saved: ${q.id}${emailed ? " and emailed to the visitor" : ""}`;
+      } else if (input.action === "emailQuote") {
+        const q = await tx.leadQuote.findFirst({ where: { id: input.quoteId, leadId: id } });
+        assert(q, "NOT_FOUND", "Quote not found.", 404);
+        assert(q.validUntil > new Date(), "QUOTE_EXPIRED", "This quote has expired. Save a new one.", 409);
+        await emailQuote(tx, lead, q);
+        note = "Quote emailed again: " + q.id;
       } else {
         if (lead.memberId) return lead;
         const email = lead.email.toLowerCase();
@@ -204,13 +239,15 @@ export function actLead(
     },
   );
 }
-export async function followupJob(id: string, at: string) {
+export async function followupJob(id: string, at: string, auto = false) {
   await db.$transaction(async (tx) => {
     const lead = await tx.lead.findUnique({ where: { id } });
     if (
       !lead ||
       lead.followUpAt?.toISOString() !== at ||
-      ["LOST", "CONVERTED"].includes(lead.status)
+      ["LOST", "CONVERTED"].includes(lead.status) ||
+      // The automatic one-day reminder only matters while nobody has touched the lead.
+      (auto && lead.status !== "NEW")
     )
       return;
     await tx.staffNotification.upsert({
@@ -219,7 +256,7 @@ export async function followupJob(id: string, at: string) {
         dedupeKey: `followup:${id}:${at}`,
         kind: "FOLLOW_UP",
         entityId: id,
-        message: `Follow up with ${lead.name}${lead.assignedTo ? " (assigned)" : ""}.`,
+        message: auto ? `${lead.name} enquired a day ago and has not been contacted yet.` : `Follow up with ${lead.name}${lead.assignedTo ? " (assigned)" : ""}.`,
       },
       update: {},
     });

@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { createMailTransport, describeMailError, senderDomain } from "./transport";
+import { createMailTransport, describeMailError, isPermanentFailure, isUndeliverable, senderDomain } from "./transport";
 import type { Job } from "@/generated/prisma/client";
 import {
   expireBookingJob,
@@ -45,7 +45,7 @@ export async function processNextJob() {
       );
     else if (job.kind === "EXPIRE_SHOP") await expireOrderJob(payload.id);
     else if (job.kind === "LEAD_FOLLOWUP")
-      await followupJob(payload.id, payload.at);
+      await followupJob(payload.id, payload.at, Boolean((job.payload as { auto?: boolean }).auto));
     else if (!["SEND_MAIL", "MEMBERSHIP_REMINDER"].includes(job.kind))
       throw new Error("Unsupported job kind");
     if (["SEND_MAIL", "MEMBERSHIP_REMINDER"].includes(job.kind)) {
@@ -88,7 +88,10 @@ export async function processNextJob() {
             }
           }
           if (message.status !== "DELIVERED") {
-            if (message.mode === "smtp") {
+            if (message.mode === "smtp" && isUndeliverable(message.to)) {
+              // Demo and placeholder addresses cannot receive real email; keep the message in the local inbox.
+              await tx.mailMessage.update({ where: { id: message.id }, data: { mode: "local" } });
+            } else if (message.mode === "smtp") {
               const transport = createMailTransport();
               await transport.sendMail({
                 from: process.env.EMAIL_FROM,
@@ -128,7 +131,7 @@ export async function processNextJob() {
     const updated = await db.job.updateMany({
       where: { id: job.id, status: "RUNNING", attempts: job.attempts },
       data: {
-        status: job.attempts >= 5 ? "FAILED" : "PENDING",
+        status: job.attempts >= 5 || (isMail && isPermanentFailure(error)) ? "FAILED" : "PENDING",
         lockedAt: null,
         runAt: new Date(
           Date.now() + Math.min(3600, 2 ** job.attempts * 10) * 1000,
@@ -145,7 +148,7 @@ export async function processNextJob() {
           jobId: job.id,
           status: { notIn: ["DELIVERED", "SUPPRESSED"] },
         },
-        data: { status: job.attempts >= 5 ? "FAILED" : "RETRYING" },
+        data: { status: job.attempts >= 5 || isPermanentFailure(error) ? "FAILED" : "RETRYING" },
       });
   }
   return true;

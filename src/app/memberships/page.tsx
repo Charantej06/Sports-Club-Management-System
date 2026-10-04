@@ -2,13 +2,17 @@ import Image from "next/image";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { publicData } from "@/modules/public/queries";
+import { gatewayConfigured } from "@/modules/billing/gateway";
 import { MembershipOptions } from "@/components/membership-options";
+import { EnquiryForm } from "@/components/enquiry-form";
 
 export const metadata = { title: "Memberships" };
 
 export default async function Memberships() {
   const [data, session] = await Promise.all([publicData(), auth.api.getSession({ headers: await headers() })]);
   const localMode = process.env.PAYMENT_MODE === "local";
+  const gateway = gatewayConfigured();
+  const testMode = gateway && (process.env.RAZORPAY_KEY_ID || "").startsWith("rzp_test_");
 
   return (
     <div className="relative isolate min-h-[calc(100svh-88px)] overflow-hidden">
@@ -79,10 +83,22 @@ export default async function Memberships() {
           </div>
         </div>
 
+        <div className="mt-14 grid gap-10 border-t border-white/10 pt-12 lg:grid-cols-[1fr_1.2fr]">
+          <div>
+            <h2 className="text-2xl font-medium">Not sure which plan fits?</h2>
+            <p className="soft-text mt-4 max-w-sm text-sm">Tell us how you like to play and we&apos;ll recommend a plan, send you a quote and answer any questions. No account needed.</p>
+          </div>
+          <EnquiryForm sports={data.sports} interest="MEMBERSHIP" askInterest={false} defaultMessage="I'd like a recommendation for the right membership plan." submitLabel="Get a quote" />
+        </div>
+
         <p className="notice mt-10">
           {localMode
             ? "Local demo: membership purchases use simulated payments. Receipts clearly identify the payment source."
-            : "Online payments are awaiting configuration. Contact reception for membership enquiries."}
+            : gateway
+              ? testMode
+                ? "Payments are processed securely by Razorpay in test mode: no real money moves. Receipts are emailed to you."
+                : "Payments are processed securely by Razorpay. Your receipt is emailed to you."
+              : "Online payments are awaiting configuration. Contact reception for membership enquiries."}
         </p>
       </section>
     </div>

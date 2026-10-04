@@ -510,6 +510,11 @@ model Lead {
   email      String
   message    String
   sport      String?
+  phone      String?
+  // What the visitor wants: GENERAL, TRIAL, BOOKING, MEMBERSHIP or SHOP. Repeat enquiries from one email merge into one lead.
+  interest   String @default("GENERAL")
+  planId     String?
+  enquiryCount Int @default(1)
   assignedTo String?
   memberId   String?
   status     String @default("NEW")
@@ -707,5 +712,8 @@ model LeadQuote {
   snapshot Json
   totalPaise Int
   validUntil DateTime @db.Timestamptz(3)
+  // Unguessable token for the public quote page a visitor opens from the emailed link.
+  token String @unique @default(cuid())
+  sentAt DateTime?
   createdAt DateTime @default(now())
 }

@@ -66,6 +66,21 @@ export function senderDomain(from = process.env.EMAIL_FROM || "") {
   return /@([^>\s]+)/.exec(from)?.[1] || "champions.local";
 }
 
+/**
+ * Placeholder addresses (the demo accounts, example.com, .test and similar) can never receive real mail.
+ * Sending to them only produces bounces and wastes the provider's daily quota, so the worker keeps those
+ * messages in the local inbox instead of handing them to the SMTP provider.
+ */
+export function isUndeliverable(address: string) {
+  const domain = address.split("@").pop()?.toLowerCase() ?? "";
+  return /(^|\.)(local|localhost|test|invalid|example)$/.test(domain) || /^example\.(com|org|net)$/.test(domain);
+}
+/** Provider answers that will never succeed on retry (mailbox does not exist, sender or message rejected). */
+export function isPermanentFailure(error: unknown) {
+  const code = (error as { responseCode?: number } | undefined)?.responseCode;
+  return typeof code === "number" && code >= 550 && code <= 554;
+}
+
 const HINTS: Record<string, string> = {
   EAUTH: "The provider rejected the username or password. Use an app password or SMTP key, not your normal login password.",
   ECONNECTION: "Could not connect. Check SMTP_HOST and SMTP_PORT and that outbound SMTP is not blocked by a firewall.",

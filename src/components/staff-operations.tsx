@@ -4,6 +4,7 @@ import { useItemDraft } from "./safe-drafts";
 import { promptText } from "./prompt-dialog";
 import { MemberHistory } from "./member-history";
 import { FreeSlots } from "./free-slots";
+import { StatusBadge } from "./staff-ui";
 import { MemberRegistration } from "./member-registration";
 import { useQuery } from "@tanstack/react-query";
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
@@ -643,9 +644,8 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
           <label>
             Operation
             <select name="action">
-              <option value="purchase">First membership</option>
-              <option value="renew">Renew</option>
-              <option value="change">Change plan immediately</option>
+              <option value="renew">Add membership (starts when the current one ends, or now if none)</option>
+              <option value="change">Switch plan immediately (replaces time left)</option>
             </select>
           </label>
           <label className="flex items-center gap-3">
@@ -821,11 +821,16 @@ export function CRM() {
       )}
       {query.data?.leads.map((l) => (
         <article className="surface space-y-4" key={l.id}>
-          <h3 className="text-lg font-semibold">
-            {l.name} · {l.status}
+          <h3 className="flex flex-wrap items-center gap-2 text-lg font-semibold">
+            {l.name}
+            <StatusBadge tone={l.status === "NEW" ? "accent" : l.status === "CONVERTED" ? "success" : l.status === "LOST" ? "neutral" : "info"}>{l.status}</StatusBadge>
+            {l.interest !== "GENERAL" && <StatusBadge>{l.interest.toLowerCase()}</StatusBadge>}
+            {l.enquiryCount > 1 && <StatusBadge tone="warning">wrote {l.enquiryCount} times</StatusBadge>}
           </h3>
           <p className="text-xs text-slate-500">
-            {l.email} · {l.sport} ·{" "}
+            <a className="underline" href={`mailto:${l.email}`}>{l.email}</a>
+            {l.phone && <> · <a className="underline" href={`tel:${l.phone}`}>{l.phone}</a></>} · {l.sport}
+            {l.planId ? ` · asked about ${l.planId}` : ""} ·{" "}
             {l.followUpAt
               ? `Follow up ${new Date(l.followUpAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
               : "No follow-up scheduled"}
@@ -871,6 +876,7 @@ export function CRM() {
                 {[
                   "NEW",
                   "CONTACTED",
+                  "QUOTED",
                   "LOST",
                   ...(l.memberId ? ["CONVERTED"] : []),
                 ].map((s) => (
@@ -948,7 +954,7 @@ export function CRM() {
                   })
                 }
               >
-                Quote {planId}
+                Quote &amp; email {planId}
               </Button>
             ))}
             {!l.memberId && (
@@ -980,6 +986,16 @@ export function CRM() {
             <div className="mt-4 space-y-3">
               {l.quotes.map((q) => (
                 <p className="text-xs" key={q.id}>
+                  <a className="mr-2 text-orange-800 underline" href={`/quote/${q.token}`} target="_blank" rel="noreferrer">Open quote page</a>
+                  <button
+                    type="button"
+                    className="mr-2 text-orange-800 underline disabled:opacity-50"
+                    disabled={action.isPending}
+                    onClick={() => action.mutate({ area: "crm", id: l.id, input: { action: "emailQuote", quoteId: q.id } })}
+                  >
+                    {q.sentAt ? "Email again" : "Email to visitor"}
+                  </button>
+                  {q.sentAt ? `Sent ${new Date(q.sentAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })} · ` : "Not sent · "}
                   {q.planId} · {money(q.totalPaise)} · valid until{" "}
                   {new Date(q.validUntil).toLocaleDateString("en-IN", {
                     timeZone: "Asia/Kolkata",
