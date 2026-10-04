@@ -38,3 +38,32 @@ test("Mail settings report what is missing without exposing the password", async
   assert.match(text, /EAUTH/);
   assert.equal(text.includes("hunter2-secret"), false, "credentials are redacted from stored errors");
 });
+test("Placeholder addresses stay local and only permanent provider rejections fail fast", async () => {
+  const { isUndeliverable, isPermanentFailure } = await import("../src/modules/mail/transport");
+  for (const address of ["member@champions.local", "a@example.com", "b@example.org", "c@mail.test", "d@x.invalid", "e@localhost"]) assert.equal(isUndeliverable(address), true, address);
+  for (const address of ["player@gmail.com", "owner@clubhouse.in", "x+tag@outlook.com"]) assert.equal(isUndeliverable(address), false, address);
+  assert.equal(isPermanentFailure({ responseCode: 550 }), true, "mailbox does not exist");
+  assert.equal(isPermanentFailure({ responseCode: 421 }), false, "temporary failures are retried");
+  assert.equal(isPermanentFailure(new Error("socket hang up")), false);
+});
+test("Payment settings explain what is wrong without exposing secrets", async () => {
+  const { paymentSettings, verifyProvider } = await import("../src/modules/billing/health");
+  const good = { PAYMENT_MODE: "razorpay", RAZORPAY_KEY_ID: "rzp_test_AbCdEf123456", RAZORPAY_KEY_SECRET: "x".repeat(24), RAZORPAY_WEBHOOK_SECRET: "club-webhook-secret", BETTER_AUTH_URL: "https://club.example.com" };
+  const ok = paymentSettings(good);
+  assert.equal(ok.configured, true);
+  assert.equal(ok.testMode, true);
+  assert.equal(ok.webhookUrl, "https://club.example.com/api/payments/webhook");
+  assert.equal(JSON.stringify(ok).includes("x".repeat(24)), false, "the secret is never returned");
+  assert.equal(JSON.stringify(ok).includes("club-webhook-secret"), false);
+  assert.deepEqual(paymentSettings({ ...good, RAZORPAY_KEY_SECRET: "" }).missing, ["RAZORPAY_KEY_SECRET"]);
+  assert.equal(paymentSettings({ ...good, RAZORPAY_KEY_SECRET: "short" }).warnings.some((w) => /24 characters/.test(w)), true);
+  assert.equal(paymentSettings({ ...good, RAZORPAY_WEBHOOK_SECRET: "rzp_test_xyz" }).warnings.some((w) => /looks like a key ID/.test(w)), true);
+  assert.equal(paymentSettings({ ...good, RAZORPAY_KEY_ID: "rzp_live_AbCdEf123456" }).testMode, false);
+  assert.equal(paymentSettings({ ...good, RAZORPAY_KEY_ID: "rzp_live_AbCdEf123456" }).warnings.some((w) => /real money/.test(w)), true);
+  assert.equal(paymentSettings({ ...good, BETTER_AUTH_URL: "http://localhost:3000" }).warnings.some((w) => /webhook/i.test(w)), true);
+  assert.equal(paymentSettings({ PAYMENT_MODE: "local" }).configured, true);
+  assert.equal(paymentSettings({}).configured, false);
+  assert.equal((await verifyProvider({ PAYMENT_MODE: "local" })).ok, true, "local mode needs no provider");
+  assert.equal((await verifyProvider({})).ok, false);
+  assert.match((await verifyProvider({ ...good, RAZORPAY_KEY_SECRET: "" })).message, /Missing: RAZORPAY_KEY_SECRET/);
+});

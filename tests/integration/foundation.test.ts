@@ -189,8 +189,11 @@ test("Worker local delivery is persistent and safely resumes a completed deliver
   assert.equal((await db.job.findUniqueOrThrow({ where: { id: mail.jobId } })).status, "DONE");
 });
 test("Worker failure retries are durable; a stale lease is recovered without a duplicate message", async () => {
-  assert.ok(!process.env.SMTP_HOST, "This local test requires SMTP to be unconfigured.");
-  await queueMail(`${prefix}@example.test`, `${prefix}-retry`, "Retry test.");
+  // This test needs SMTP to be unconfigured whatever the developer's .env says; restored at the end.
+  const savedHost = process.env.SMTP_HOST;
+  delete process.env.SMTP_HOST;
+  // A real-looking address: placeholder domains such as .test are kept local and never reach SMTP.
+  await queueMail(`${prefix}@gmail.com`, `${prefix}-retry`, "Retry test.");
   const mail = await db.mailMessage.findFirstOrThrow({ where: { subject: `${prefix}-retry` } });
   await db.mailMessage.update({ where: { id: mail.id }, data: { mode: "smtp" } });
   await processNextJob();
@@ -203,4 +206,5 @@ test("Worker failure retries are durable; a stale lease is recovered without a d
   await processNextJob();
   assert.equal((await db.job.findUniqueOrThrow({ where: { id: mail.jobId } })).status, "DONE");
   assert.equal(await db.mailMessage.count({ where: { jobId: mail.jobId } }), 1);
+  if (savedHost !== undefined) process.env.SMTP_HOST = savedHost;
 });

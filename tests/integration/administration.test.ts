@@ -726,7 +726,8 @@ test("Unconfigured SMTP never claims delivery and owner retries failed mail visi
     data: {
       id,
       jobId: id,
-      to: member.email,
+      // A real-looking address: placeholder domains such as .test never reach the provider.
+      to: `${prefix}-smtp@gmail.com`,
       subject: "SMTP failure test",
       body: "No secrets",
       mode: "smtp",
@@ -749,6 +750,8 @@ test("Unconfigured SMTP never claims delivery and owner retries failed mail visi
   );
   await mutate(owner, { action: "retryMail", id });
   assert.equal((await db.job.findUniqueOrThrow({ where: { id } })).attempts, 0);
+  await db.mailMessage.delete({ where: { id } });
+  await db.job.delete({ where: { id } });
 });
 test("Gateway signatures reject tampering and direct unverified allocations are forbidden", async () => {
   const secret = randomUUID(),

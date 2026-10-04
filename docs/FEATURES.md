@@ -43,6 +43,8 @@ Roles: `MEMBER`, `RECEPTION`, `CASHIER` (the waiter), `KITCHEN`, `OWNER`. The ro
 | Members pay less, or nothing | Price comes from the court rate, the member's plan discount on the session date, complimentary weekly sessions (Gold, Junior), the 50% introductory trial and the guest rate for walk-ins. The price is stored with the booking. | `bookings/service.ts` (`courtPrice`) |
 | Walk-in at the counter, caller on the phone | Reception books for a member or a guest in one form. A live **"What's free?"** panel shows every free start time per court and fills the form on a tap. | `staff-operations.tsx` (`Reception`), `src/components/free-slots.tsx` |
 | Customers book online | Picking a free time goes straight to checkout. The slot is held for five minutes so nobody else can take it; payment or confirmation follows at once. | `src/components/courts-view.tsx` |
+| A second membership | Buying another membership (any plan) starts it **when the current one ends**; nothing already paid for is lost. Switching immediately is a separate, explicit choice. Reminders follow the last term. | `membership/service.ts` |
+| Receipts | Every membership, court booking and shop order emails a receipt, queued in the same transaction as the payment so it exists only if the payment commits. | `mail/outbox.ts`, `mail/notifications.ts` |
 | Plans change, people cancel | A confirmed booking can be cancelled up to 12 hours ahead; credits and refunds follow the invoice. Reception can override with a reason. A freed slot is offered to the **waiting list in order**; each person has 30 minutes to accept. | `actBooking`, `offerNext`, worker |
 | Friday social play | One court reservation, many participants. Capacity is enforced by a database trigger so the last place cannot be sold twice. | `createSocial`, `joinSocial`, migration `*operations*` |
 | Courts change | Owners add sports and courts, change rates and mark a court or sport **under maintenance** (players see why) or retire it. | `src/modules/facilities`, *Courts & sports* tab |
@@ -84,7 +86,8 @@ Roles: `MEMBER`, `RECEPTION`, `CASHIER` (the waiter), `KITCHEN`, `OWNER`. The ro
 | See what is free this week | `/book` shows live availability per court for the booking window, refreshed every five seconds. | `GET /api/public/availability` |
 | See what the shop sells | `/shop` with search and sport filters. | `shop-view.tsx` |
 | Book a trial on the spot | The trial session uses the same checkout at a discount, once per account. | `bookings/service.ts` |
-| Enquiries never vanish | The enquiry form saves a lead, notifies reception and rate-limits spam. Staff assign it, add notes, schedule a follow-up (a reminder fires through the worker), send a **quote** for a chosen plan and term, and **convert** the lead into a member account. | `crm/service.ts`, `enquiries/service.ts` |
+| Enquiries never vanish | Anyone can reach the club without an account: the enquiry form (home and membership pages) and, on the booking page, a prompt that lets a visitor **ask the club to book a slot for them**. Each enquiry becomes a lead with phone, interest and plan; repeat enquiries merge into the open lead; the visitor gets an acknowledgement email and reception is notified in the app and by email; an automatic one-day reminder fires if nobody has contacted them. | `enquiries/service.ts`, `src/components/enquiry-form.tsx`, `courts-view.tsx` |
+| Follow up, quote, welcome | Staff assign, add notes, schedule follow-ups, and **quote and email** a plan and term. The email links to a public **quote page** (no login) with a sign-up link prefilled with their address. When that person later joins, their lead closes itself as converted. | `crm/service.ts`, `src/app/quote/[token]`, `membership/service.ts` |
 
 ---
 

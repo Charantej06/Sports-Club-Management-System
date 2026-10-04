@@ -224,3 +224,16 @@ test("The owner can print a business summary; nobody else can open it", async ()
     assert.ok(![200].includes(denied.status) || !(await denied.text()).includes("Money in and out"), "no summary for non-owners");
   }
 });
+test("Payment and email health checks are owner-only and never reveal secrets", async () => {
+  for (const path of ["/api/staff/payments", "/api/staff/mail"]) {
+    assert.equal((await fetch(`${base}${path}`)).status, 401, `${path} needs a sign-in`);
+    for (const cookie of [playerCookie, cashierCookie, receptionCookie]) assert.equal((await fetch(`${base}${path}`, { headers: headers(cookie) })).status, 403, `${path} is owner-only`);
+  }
+  const payments = await fetch(`${base}/api/staff/payments`, { headers: headers(ownerCookie) }).then((r) => r.json());
+  assert.ok(["razorpay", "local", "off"].includes(payments.data.mode));
+  const text = JSON.stringify(payments);
+  for (const secret of [process.env.RAZORPAY_KEY_SECRET, process.env.RAZORPAY_WEBHOOK_SECRET, process.env.SMTP_PASSWORD]) if (secret) assert.ok(!text.includes(secret), "no secret in the response");
+  const mail = await fetch(`${base}/api/staff/mail`, { headers: headers(ownerCookie) }).then((r) => r.text());
+  if (process.env.SMTP_PASSWORD) assert.ok(!mail.includes(process.env.SMTP_PASSWORD));
+  assert.equal((await fetch(`${base}/api/staff/payments`, { method: "POST", headers: { ...headers(ownerCookie), Origin: "https://untrusted.example" }, body: JSON.stringify({ action: "verify" }) })).status, 403);
+});
