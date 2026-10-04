@@ -12,9 +12,9 @@ const sports = [
   { id: "cricket", name: "Cricket", description: "From your first cover drive to match-day preparation. Book practice nets and build your game, ball by ball.", image: "/images/cricket.jpg", rate: 60000, count: 2 },
 ];
 const plans = [
-  { id: "silver", name: "Silver", description: "Your regular spot on the court.", pricePaise: 650000, courtDiscountBps: 1500, shopDiscountBps: 500, foodDiscountBps: 500, freeSessionsWeek: 0, sortOrder: 1 },
-  { id: "gold", name: "Gold", description: "More play. Every advantage.", pricePaise: 1200000, courtDiscountBps: 2500, shopDiscountBps: 1500, foodDiscountBps: 1500, freeSessionsWeek: 2, sortOrder: 2 },
-  { id: "junior", name: "Junior", description: "Big dreams start with a little play.", pricePaise: 350000, courtDiscountBps: 2000, shopDiscountBps: 1000, foodDiscountBps: 1000, freeSessionsWeek: 1, juniorOnly: true, sortOrder: 3 },
+  { id: "silver", name: "Silver", description: "Your regular spot on the court.", pricePaise: 219900, courtDiscountBps: 1500, shopDiscountBps: 500, foodDiscountBps: 500, freeSessionsWeek: 0, sortOrder: 1 },
+  { id: "gold", name: "Gold", description: "More play. Every advantage.", pricePaise: 399900, courtDiscountBps: 2500, shopDiscountBps: 1500, foodDiscountBps: 1500, freeSessionsWeek: 2, sortOrder: 2 },
+  { id: "junior", name: "Junior", description: "Big dreams start with a little play.", pricePaise: 119900, courtDiscountBps: 2000, shopDiscountBps: 1000, foodDiscountBps: 1000, freeSessionsWeek: 1, juniorOnly: true, sortOrder: 3 },
 ];
 // Prices in rupees here are converted once to integer paise below.
 const catalogue: [string, string, string, string, number, string, boolean?][] = [
@@ -106,8 +106,8 @@ async function main() {
   for (const [slug, title, salaryPaise] of [["reception", "Reception associate", 2800000], ["cashier", "Waiter / cashier", 2600000], ["kitchen", "Kitchen chef", 3500000]] as const) {
     await db.employee.upsert({ where: { userId: `demo-${slug}` }, create: { userId: `demo-${slug}`, title, salaryPaise }, update: {} });
   }
-  if (!await db.membership.count({ where: { userId: "demo-member" } }) && process.env.PAYMENT_MODE === "local") await purchaseMembership("demo-member", "seed-gold", { planId: "gold", action: "purchase", acceptPolicy: true, planVersion: (await db.membershipPlan.findUniqueOrThrow({ where: { id: "gold" } })).updatedAt.toISOString() });
-  if (!await db.membership.count({ where: { userId: "demo-expired" } })) await db.membership.create({ data: { userId: "demo-expired", planId: "silver", startsAt: new Date(Date.now() - 100 * 86400000), endsAt: new Date(Date.now() - 10 * 86400000), pricePaise: 650000, planSnapshot: { name: "Silver", durationDays: 90, courtDiscountBps: 1500, shopDiscountBps: 500, foodDiscountBps: 500, freeSessionsWeek: 0 } } });
+  if (!await db.membership.count({ where: { userId: "demo-member" } }) && process.env.PAYMENT_MODE === "local") await purchaseMembership("demo-member", "seed-gold", { planId: "gold", action: "purchase", acceptPolicy: true, period: "quarterly", planVersion: (await db.membershipPlan.findUniqueOrThrow({ where: { id: "gold" } })).updatedAt.toISOString() });
+  if (!await db.membership.count({ where: { userId: "demo-expired" } })) await db.membership.create({ data: { userId: "demo-expired", planId: "silver", startsAt: new Date(Date.now() - 100 * 86400000), endsAt: new Date(Date.now() - 10 * 86400000), pricePaise: 650000, planSnapshot: { name: "Silver", months: 3, durationDays: 90, courtDiscountBps: 1500, shopDiscountBps: 500, foodDiscountBps: 500, freeSessionsWeek: 0 } } });
   console.log("Seeded 4 sports, 11 courts, 3 plans, 36 products, 14 menu items and 8 demo accounts. Existing records preserved.");
 }
 main().finally(() => db.$disconnect());

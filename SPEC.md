@@ -237,7 +237,7 @@ The pasted brief is the full authoritative scope. The unavailable problem PDF ha
 | Opening / future window | 06:00–23:00 daily; 14 days ahead; hourly starts, exactly 60 minutes |
 | Court guest hourly prices | Tennis ₹800, padel ₹1,200, badminton ₹500, cricket ₹600 |
 | Courts | 3 tennis, 2 padel, 4 indoor badminton, 2 cricket nets |
-| Membership terms | 90 days; Gold ₹12,000, Silver ₹6,500, Junior ₹3,500 |
+| Membership terms | Chosen at checkout: 1 month, 3 months or annual. Monthly rates Gold ₹3,999, Silver ₹2,199, Junior ₹1,199; 5% off 3 months and 15% off annual (owner-editable) |
 | Court/shop/food discounts | Gold 25/15/15%, Silver 15/5/5%, Junior 20/10/10% |
 | Free sessions/week | Gold 2, Silver 0, Junior 1; Monday-start club week, stage-two integration |
 | Eligibility | Junior under 18 on term start; self-declared birth date; staff verification later |

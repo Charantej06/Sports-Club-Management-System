@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
-export const enquirySchema = z.object({ name: z.string().trim().min(2).max(80), email: z.email().max(254), message: z.string().trim().min(10).max(1000), sport: z.enum(["tennis", "padel", "badminton", "cricket", "general"]), website: z.string().max(0) }).strict();
+export const enquirySchema = z.object({ name: z.string().trim().min(2).max(80), email: z.email().max(254), message: z.string().trim().min(10).max(1000), sport: z.string().regex(/^[a-z0-9][a-z0-9-]{0,48}$/), website: z.string().max(0) }).strict();
 export async function saveEnquiry({ website: _honeypot, ...input }: z.infer<typeof enquirySchema>) {
   return db.$transaction(async tx => {
     const email = input.email.toLowerCase();

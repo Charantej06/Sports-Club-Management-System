@@ -8,11 +8,11 @@ Protected routes authenticate the cookie with Better Auth and read current roles
 |---|---|---|
 | GET /api/health | DB readiness `{status:"ok"}`; 503 if unavailable | Public |
 | GET /api/public | Stored sports/courts, plans, active catalogue/variants, menu and limited contact/hour settings | Public |
-| GET /api/public/availability?sport=tennis&date=2026-10-03 | Court names, guest prices and hourly available/elapsed booleans plus closure reason; no reservation/user details | Public |
+| GET /api/public/availability?sport=tennis&date=2026-10-03 | Any offered sport id. Court names, guest prices, `maintenance`/`maintenanceReason` and hourly available/elapsed booleans plus closure reason; courts under maintenance report every slot unavailable; 404 `SPORT_UNAVAILABLE` for retired sports; no reservation/user details | Public |
 | POST /api/enquiries | `{name,email,sport,message,website:""}`; 201 `{id}`; rate-limited to 3/email/hour | Public, same origin |
 | GET /api/me | Own safe profile, membership snapshots, invoices/payment allocations/credits, bookings and orders | Session |
 | PATCH /api/me | `{name,phone,dateOfBirth}`; birthday `YYYY-MM-DD` or empty; 200 `{updated:true}` | Own account |
-| POST /api/me/membership | UUID `Idempotency-Key` header, `{planId:"gold"|"silver"|"junior",action:"purchase"|"renew"|"change",acceptPolicy:true,planVersion:"ISO timestamp from /api/public"}` | Verified own account |
+| POST /api/me/membership | UUID `Idempotency-Key` header, `{planId:"gold"|"silver"|"junior",months:1|3|12 (default 1),action:"purchase"|"renew"|"change",acceptPolicy:true,planVersion:"ISO timestamp from /api/public"}`. Price = monthly rate × months less the plan's 3-month/annual discount, rounded to a whole rupee, always calculated by the server; the term ends the same number of calendar months later | Verified own account |
 | GET /api/me/card | Active card PNG data URL/issued date, revoked flag, or null if no active membership | Own account |
 | DELETE /api/me/card | Revoke own card, 200 `{revoked:true}` | Own account |
 | POST /api/me/card | Issue if missing/revoked; active existing token reused, 200 `{issued:true}` | Own active membership |
@@ -20,7 +20,14 @@ Protected routes authenticate the cookie with Better Auth and read current roles
 | GET /api/staff/lookup?q=... | Exact ID/email or `champions:card:<opaque>`; limited name/ID/current plan/expiry | Owner, reception, cashier |
 | GET /api/staff/settings | Full editable business settings | Owner |
 | PATCH /api/staff/settings | Full operating-policy/contact fields; timezone fixed to Asia/Kolkata | Owner |
-| PATCH /api/staff/plans | `{id,pricePaise,durationDays,courtDiscountBps,shopDiscountBps,foodDiscountBps,freeSessionsWeek,active}` | Owner |
+| PATCH /api/staff/plans | `{id,pricePaise (monthly rate),quarterDiscountBps,annualDiscountBps,courtDiscountBps,shopDiscountBps,foodDiscountBps,freeSessionsWeek,active}` | Owner |
+| POST /api/operations/member | `{name,email,phone?,dateOfBirth?}` front-desk registration; creates the account, Champions ID and an invitation email, or returns the existing member for a known email (`created:false`) | Owner/reception |
+| GET /api/staff/member?id=... | A member's history: plan and days left, visits, bookings, memberships, orders, bills, total paid and unpaid balance | Owner/reception |
+| GET /staff/summary?preset=month\|week\|today or ?from=&to= | Printable business summary page (money in/out, departments, bar vs kitchen, what the club owes, courts) | Owner |
+| GET /api/staff/facilities | Every sport and court (including maintenance/retired) with upcoming booking counts | Owner/reception |
+| POST /api/staff/facilities | `{action:"createSport",name,description,image}`; `{action:"updateSport",id,name?,description?,image?,status?,statusNote?}`; `{action:"createCourt",sportId,name?,hourlyPaise,indoor}`; `{action:"updateCourt",id,name?,hourlyPaise?,indoor?,status?,statusNote?}`. `status` is `ACTIVE`, `MAINTENANCE` (note required, shown to players) or `INACTIVE` (retired, hidden). `image` must be a local `/images/…` asset. Facilities are never deleted; changes are audited. Existing bookings are not cancelled automatically | Owner |
+| GET /api/staff/mail | Email mode, masked SMTP settings, missing variables, warnings and delivery queue counts; never the password | Owner |
+| POST /api/staff/mail | `{action:"verify"}` tests the SMTP connection and login; `{action:"test"}` queues a test email to the owner through the worker | Owner |
 | PATCH /api/staff/users | `{email,role}`; existing account only, cannot change own role; target sessions revoked | Owner |
 | GET /api/staff/inbox | Latest 30 local test messages; unavailable in SMTP mode | Owner |
 
@@ -51,11 +58,11 @@ Every operation mutation requires the session cookie, permitted `Origin` and UUI
 | GET /api/operations/kitchen | Open preparation tickets and amendments | Owner/kitchen/cashier |
 | GET /api/operations/billing | Latest 150 permitted invoices, allocations, credits and refunds | Owner/reception/cashier, department scoped |
 | GET /api/operations/booking/:id, order/:id, bill/:id | Scoped persisted record | Own customer or permitted staff |
-| POST /api/operations/booking | `{courtId,day,hour,trial?}` creates priced temporary hold/invoice; staff may add `userId` or `guestName,guestEmail?` | Member/owner/reception |
+| POST /api/operations/booking | `{courtId,day,hour,minute?:0|30,trial?}` creates priced temporary hold/invoice; a new session may start every `slotMinutes` (30 by default, owner-editable to 60), lasts one hour and must end by closing time (422 `SLOT_START` / `OPENING_HOURS`); 409 `SLOT_TAKEN` when it overlaps another booking; staff may add `userId` or `guestName,guestEmail?` | Member/owner/reception |
 | PATCH /api/operations/booking/:id | `{action:"confirm"|"cancel"|"checkin",method?,reason?,override?}` | Own customer; owner/reception for check-in/override |
 | POST /api/operations/social-create | `{courtId,day,hour,title,capacity}` creates Friday event and one court reservation | Owner/reception |
 | PATCH /api/operations/social/:eventId | `{action:"join"}`; `{action:"confirm"|"cancel"|"checkin",participantId?,method?,reason?,override?}`; `{action:"cancelEvent",reason}` | Own participant inferred; owner/reception can select participantId |
-| POST /api/operations/waiting | `{courtId,day,hour,eventId?}`; one entry per own court/start | Session |
+| POST /api/operations/waiting | `{courtId,day,hour,minute?:0|30,eventId?}`; one entry per own court/start | Session |
 | PATCH /api/operations/waiting/:id | `{action:"cancel"}`; offered holds are released via booking/participant cancellation | Own customer |
 | POST /api/operations/closure | `{courtId,startsAt,endsAt,reason}` | Owner/reception |
 | PATCH /api/operations/closure/:id | `{reason}` reopens closure | Owner/reception |
