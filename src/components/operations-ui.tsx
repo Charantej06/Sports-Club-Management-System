@@ -157,7 +157,7 @@ export function CheckoutHold({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-4">
         <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-orange-800">
           <span className="size-2 rounded-full bg-orange-600" />
-          {area === "order" ? "Order Hold Active" : "Session Hold Active"}
+          {area === "order" ? "Order Hold Active" : "Booking in progress"}
         </div>
         {holdExpiryFormatted && (
           <div className="flex items-center gap-2 rounded-md bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700 border border-neutral-200">
@@ -285,7 +285,7 @@ export function CheckoutHold({
                 )
               }
             >
-              Release Hold
+              {area === "order" ? "Release Hold" : "Cancel booking"}
             </Button>
           </div>
         </div>

@@ -3,6 +3,15 @@ import assert from "node:assert/strict";
 import { ageAt, isActive } from "../src/modules/membership/rules";
 import { discountedAmount } from "../src/modules/billing/service";
 import { profileSchema } from "../src/modules/account/validation";
+import { termDays, termPrice } from "../src/modules/membership/terms";
+test("Membership periods derive integer paise and term lengths from the quarterly plan", () => {
+  assert.equal(termPrice(650000, "monthly"), 216667);
+  assert.equal(termPrice(650000, "quarterly"), 650000);
+  assert.equal(termPrice(650000, "annual"), 2340000);
+  assert.equal(termDays("monthly"), 30);
+  assert.equal(termDays("quarterly"), 90);
+  assert.equal(termDays("annual"), 365);
+});
 test("Junior eligibility changes on the eighteenth birthday", () => {
   const birth = new Date("2008-10-04");
   assert.equal(ageAt(birth, new Date("2026-10-03")), 17);

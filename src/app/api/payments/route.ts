@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { requireUser } from "@/lib/access";
-import { route, jsonBody, sameOrigin } from "@/lib/errors";
+import { AppError, route, jsonBody, sameOrigin } from "@/lib/errors";
 import { db } from "@/lib/db";
 import { assert, keyFrom } from "@/modules/operations/core";
 import {
@@ -55,14 +55,18 @@ export const POST = route(async (request) => {
 export const PATCH = route(async (request) => {
   sameOrigin(request);
   const actor = await requireUser(request);
-  const input = z
+  const parsed = z
     .object({
       id: z.uuid(),
       paymentId: z.string().regex(/^pay_[a-zA-Z0-9]+$/),
+      orderId: z.string().regex(/^order_[a-zA-Z0-9]+$/),
       signature: z.string().length(64),
     })
     .strict()
-    .parse(await jsonBody(request));
+    .safeParse(await jsonBody(request));
+  if (!parsed.success)
+    throw new AppError(400, "VALIDATION", "Payment ID, order ID and signature are required and must be valid.");
+  const input = parsed.data;
   const intent = await db.gatewayIntent.findUnique({ where: { id: input.id } });
   assert(
     intent?.userId === actor.id && intent.orderId,
@@ -72,6 +76,7 @@ export const PATCH = route(async (request) => {
   );
   assert(
     gatewayConfigured() &&
+      input.orderId === intent.orderId &&
       validSignature(
         `${intent.orderId}|${input.paymentId}`,
         input.signature,
@@ -79,7 +84,7 @@ export const PATCH = route(async (request) => {
       ),
     "SIGNATURE",
     "Invalid payment signature.",
-    403,
+    400,
   );
   await db.job.upsert({
     where: { dedupeKey: "gateway:" + input.paymentId },

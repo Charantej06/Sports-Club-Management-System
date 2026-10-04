@@ -116,23 +116,23 @@ export function StaffDesk({
         <div className="site-width py-10">
           <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
+              <p className="text-sm font-medium text-slate-600">
                 Champions operations
               </p>
               <h1 className="mt-3 text-3xl font-semibold tracking-tight">
                 Hello, {name.split(" ")[0]}.
               </h1>
             </div>
-            <span className="rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-xs text-orange-800">
+            <span className="staff-role">
               {role === "CASHIER"
                 ? "Waiter / Cashier"
                 : role[0] + role.slice(1).toLowerCase()}{" "}
               workspace
             </span>
           </div>
-          <div className="grid gap-7 lg:grid-cols-[220px_1fr]">
+          <div className="staff-layout">
             <nav
-              className="flex content-start gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible"
+              className="staff-navigation flex content-start gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible"
               aria-label="Staff navigation"
             >
               {tabs.map((item) => (
@@ -140,9 +140,9 @@ export function StaffDesk({
                   key={item.id}
                   onClick={() => setTab(item.id)}
                   aria-current={tab === item.id ? "page" : undefined}
-                  className={`flex shrink-0 items-center gap-3 whitespace-nowrap rounded-lg px-4 py-3 text-left text-sm lg:whitespace-normal ${tab === item.id ? "bg-[#26303d] text-white" : "text-slate-600 hover:bg-white"}`}
+                  className="staff-navigation-item flex shrink-0 items-center gap-3 whitespace-nowrap text-left lg:whitespace-normal"
                 >
-                  <item.icon size={17} />
+                  <item.icon size={20} aria-hidden="true" />
                   {item.name}
                 </button>
               ))}
@@ -433,8 +433,8 @@ function PlanFields({ plan }: { plan: MembershipPlan }) {
     },
   });
   const fields = [
-    ["pricePaise", "Price · paise", 100, 100000000],
-    ["durationDays", "Term · days", 1, 730],
+    ["pricePaise", "Quarterly price · paise", 100, 100000000],
+    ["durationDays", "Quarterly term · days", 1, 730],
     ["courtDiscountBps", "Court discount · basis points", 0, 10000],
     ["shopDiscountBps", "Shop discount · basis points", 0, 10000],
     ["foodDiscountBps", "Clubhouse discount · basis points", 0, 10000],

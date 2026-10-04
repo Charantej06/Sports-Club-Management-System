@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { productImage } from "@/modules/shop/product-images";
 export async function publicData() {
   const [sports, plans, products, menu, settings] = await Promise.all([
     db.sport.findMany({ orderBy: { sortOrder: "asc" }, include: { courts: { where: { active: true }, select: { id: true, name: true, hourlyPaise: true, indoor: true } } } }),
@@ -9,7 +10,7 @@ export async function publicData() {
   ]);
   return {
     sports, plans: plans.map(({ updatedAt, ...plan }) => ({ ...plan, planVersion: updatedAt.toISOString() })),
-    products: products.map(p => ({ ...p, variants: p.variants.map(v => ({ id: v.id, label: v.label, pricePaise: v.pricePaise, available: Math.max(0, v.stock - v.reserved) })) })),
+    products: products.map(p => ({ ...p, image: productImage(p.id, p.image), variants: p.variants.map(v => ({ id: v.id, label: v.label, pricePaise: v.pricePaise, available: Math.max(0, v.stock - v.reserved) })) })),
     menu, settings: { timezone: settings.timezone, openHour: settings.openHour, closeHour: settings.closeHour, bookingWindowDays: settings.bookingWindowDays, dailySessionLimit:settings.dailySessionLimit,cancellationHours:settings.cancellationHours,deliveryFeePaise:settings.deliveryFeePaise, address: settings.address, contactEmail: settings.contactEmail, contactPhone: settings.contactPhone },
   };
 }

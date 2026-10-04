@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Calendar as CalendarIcon,
@@ -16,7 +16,7 @@ import { money } from "@/lib/utils";
 import { api } from "@/lib/api-client";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-import { useAction, Feedback, CheckoutHold, type Json } from "./operations-ui";
+import { useAction, CheckoutHold, type Json } from "./operations-ui";
 import type { socialList } from "@/modules/operations/queries";
 
 type Availability = {
@@ -66,10 +66,14 @@ export function CourtsView({
   const [sport, setSport] = useState(initialSport);
   const [day, setDay] = useState(today);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [attempt, setAttempt] = useState<{ area: "booking" | "social"; id: string; day?: string; hour?: number } | null>(null);
   const [hold, setHold] = useState<{
     area: "booking" | "social";
     hold: Hold;
     eventId?: string;
+    courtId?: string;
+    day?: string;
+    hour?: number;
   } | null>(null);
 
   const action = useAction();
@@ -92,24 +96,16 @@ export function CourtsView({
     refetchInterval: 5000,
   });
 
-  // Smooth scroll to hold when created
-  useEffect(() => {
-    if (hold) {
-      const anchor = document.getElementById("active-checkout-hold");
-      if (anchor) {
-        anchor.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }
-  }, [hold]);
-
-  const reserve = (courtId: string, hour: number) =>
+  const reserve = (courtId: string, hour: number) => {
+    setAttempt({ area: "booking", id: courtId, day, hour });
     action.mutate(
       { area: "booking", input: { courtId, day, hour, trial } },
       {
         onSuccess: (d) =>
-          setHold({ area: "booking", hold: d as unknown as Hold }),
+          setHold({ area: "booking", courtId, day, hour, hold: d as unknown as Hold }),
       },
     );
+  };
 
   // Generate 7 upcoming day options starting today
   const dayOptions = useMemo(() => {
@@ -200,30 +196,10 @@ export function CourtsView({
       {/* Main Professional White Booking Canvas */}
       <div className="border-t border-neutral-200 bg-[#fafafa] py-12 md:py-16">
         <div className="site-width space-y-12">
-          {/* Active Hold Checkout Banner / Card */}
-          {hold && (
-            <div id="active-checkout-hold" className="scroll-mt-24">
+          {/* Keep checkout accessible if the customer changes to another sport. */}
+          {hold && hold.area === "booking" && !data.sports.find((s) => s.id === sport)?.courts.some((c) => c.id === hold.courtId) && (
+            <div>
               <CheckoutHold {...hold} onDone={() => setHold(null)} />
-            </div>
-          )}
-
-          {/* Action Feedback & Sign-In prompt */}
-          <Feedback action={action} />
-          {action.error?.message.toLowerCase().includes("sign in") && (
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-orange-200 bg-orange-50 p-5 text-orange-950">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="size-5 shrink-0 text-orange-600" />
-                <p className="text-sm font-medium">
-                  Please sign in to your Champions Club account to book a court or join the waiting list.
-                </p>
-              </div>
-              <Button
-                asChild
-                size="sm"
-                className="bg-[#ff6b2c] font-bold text-white hover:bg-orange-600 shadow-xs"
-              >
-                <Link href="/login">Sign in to book →</Link>
-              </Button>
             </div>
           )}
 
@@ -312,7 +288,7 @@ export function CourtsView({
                       href="/account"
                       className="ml-auto inline-flex items-center gap-1 font-semibold text-orange-600 hover:text-orange-700 hover:underline"
                     >
-                      Manage your bookings & waitlists <ArrowRight className="size-3.5" />
+                      Manage your bookings <ArrowRight className="size-3.5" />
                     </Link>
                   </div>
                 </div>
@@ -419,10 +395,6 @@ export function CourtsView({
                   <span className="text-neutral-700">Available</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="size-2.5 rounded-full bg-amber-500" />
-                  <span className="text-neutral-700">Join Waitlist</span>
-                </div>
-                <div className="flex items-center gap-1.5">
                   <span className="size-2.5 rounded-full bg-neutral-300" />
                   <span className="text-neutral-400">Unavailable</span>
                 </div>
@@ -523,14 +495,14 @@ export function CourtsView({
                         </div>
 
                         <div>
-                          {openSlots > 0 ? (
+                          {openSlots > 0 || (hold?.area === "booking" && hold.courtId === c.id) ? (
                             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
                               <span className="size-1.5 rounded-full bg-emerald-600" />
-                              {openSlots} {openSlots === 1 ? "slot" : "slots"} available
+                              {openSlots > 0 ? `${openSlots} ${openSlots === 1 ? "slot" : "slots"} available` : "Slot selected"}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
-                              Waitlist open
+                            <span className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-600">
+                              Unavailable
                             </span>
                           )}
                         </div>
@@ -542,67 +514,43 @@ export function CourtsView({
                       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                         {courtSlots.map((s) => {
                           const isAvailable = s.available;
-                          const isElapsed = s.elapsed;
-                          const isClosed = !!s.reason;
-                          const isWaitlist = !isAvailable && !isElapsed && !isClosed;
+                          const isCheckoutSlot = hold?.area === "booking" && hold.courtId === c.id && hold.day === day && hold.hour === s.hour;
+                          const isPendingSlot = action.isPending && attempt?.area === "booking" && attempt.id === c.id && attempt.day === day && attempt.hour === s.hour;
+                          const isSelected = isCheckoutSlot || isPendingSlot;
 
-                          if (isAvailable) {
+                          if (isAvailable || isCheckoutSlot) {
                             return (
                               <button
                                 key={s.hour}
                                 type="button"
-                                disabled={action.isPending}
+                                disabled={action.isPending || !!hold}
                                 onClick={() => reserve(c.id, s.hour)}
-                                aria-label={`${c.name}, ${day}, ${displayHour(s.hour)}, available to book`}
-                                className="group relative flex flex-col items-center justify-center rounded-xl border border-neutral-300 bg-white p-3 text-center transition-all hover:border-orange-500 hover:bg-orange-50/40 hover:shadow-xs active:scale-[0.98]"
+                                aria-label={`${c.name}, ${day}, ${displayHour(s.hour)}, ${isSelected ? "selected for checkout" : "available to book"}`}
+                                aria-pressed={isSelected}
+                                className={`group relative flex flex-col items-center justify-center rounded-xl border p-3 text-center transition-all ${isSelected ? "border-orange-500 bg-orange-50/40 shadow-xs" : "border-neutral-300 bg-white hover:border-orange-500 hover:bg-orange-50/40 hover:shadow-xs active:scale-[0.98]"}`}
                               >
-                                <span className="text-sm font-bold text-neutral-900 group-hover:text-orange-950">
+                                <span className={`text-sm font-bold ${isSelected ? "text-orange-950" : "text-neutral-900 group-hover:text-orange-950"}`}>
                                   {displayHour(s.hour)}
                                 </span>
-                                <span className="mt-1 inline-flex items-center rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-800 group-hover:bg-[#ff6b2c] group-hover:text-white">
+                                <span className={`mt-1 inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${isSelected ? "bg-[#ff6b2c] text-white" : "bg-emerald-100 text-emerald-800 group-hover:bg-[#ff6b2c] group-hover:text-white"}`}>
                                   Book
                                 </span>
                               </button>
                             );
                           }
 
-                          if (isWaitlist) {
-                            return (
-                              <button
-                                key={s.hour}
-                                type="button"
-                                disabled={action.isPending}
-                                onClick={() =>
-                                  action.mutate({
-                                    area: "waiting",
-                                    input: { courtId: c.id, day, hour: s.hour },
-                                  })
-                                }
-                                aria-label={`${c.name}, ${day}, ${displayHour(s.hour)}, full, click to join waitlist`}
-                                className="group relative flex flex-col items-center justify-center rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-3 text-center transition-all hover:bg-amber-100/60 active:scale-[0.98]"
-                              >
-                                <span className="text-sm font-semibold text-neutral-800">
-                                  {displayHour(s.hour)}
-                                </span>
-                                <span className="mt-1 inline-flex items-center rounded bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                                  Waitlist
-                                </span>
-                              </button>
-                            );
-                          }
-
-                          // Elapsed or closed
                           return (
                             <div
                               key={s.hour}
                               aria-disabled="true"
+                              aria-label={`${c.name}, ${day}, ${displayHour(s.hour)}, unavailable`}
                               className="flex flex-col items-center justify-center rounded-xl border border-neutral-200 bg-neutral-100/70 p-3 text-center opacity-60"
                             >
-                              <span className="text-sm font-medium text-neutral-400 line-through">
+                              <span className="text-sm font-medium text-neutral-500">
                                 {displayHour(s.hour)}
                               </span>
                               <span className="mt-1 text-[10px] uppercase tracking-wider text-neutral-500 font-medium">
-                                {isElapsed ? "Started" : isClosed ? "Closed" : "Booked"}
+                                Unavailable
                               </span>
                             </div>
                           );
@@ -613,6 +561,16 @@ export function CourtsView({
                         <p className="py-6 text-center text-xs text-neutral-500 font-medium">
                           No sessions scheduled in the selected time window. Switch to &quot;All Hours&quot; above.
                         </p>
+                      )}
+                      {attempt?.area === "booking" && attempt.id === c.id && action.error && (
+                        <div role="alert" className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm text-orange-950">
+                          <AlertCircle className="size-4 shrink-0 text-orange-600" />
+                          <span>{action.error.message}</span>
+                          {action.error.message.toLowerCase().includes("sign in") && <Link href="/login" className="font-semibold underline">Sign in to book</Link>}
+                        </div>
+                      )}
+                      {hold?.area === "booking" && hold.courtId === c.id && (
+                        <CheckoutHold {...hold} onDone={() => { void availability.refetch().finally(() => setHold(null)); }} />
                       )}
                     </div>
 
@@ -632,7 +590,7 @@ export function CourtsView({
 
             <div className="flex items-center justify-between text-xs text-neutral-500 pt-2 font-medium">
               <p>Availability updates automatically every 5 seconds · Asia/Kolkata timezone</p>
-              <p>Confirmed checkout required to secure held slots</p>
+              <p>Complete checkout to confirm your booking</p>
             </div>
           </section>
 
@@ -736,12 +694,12 @@ export function CourtsView({
                         className={`w-full font-bold transition-all ${
                           !isFull
                             ? "bg-[#ff6b2c] text-white hover:bg-orange-600 shadow-xs"
-                            : "border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                            : "border border-neutral-200 bg-neutral-100 text-neutral-500"
                         }`}
-                        disabled={action.isPending}
-                        onClick={() =>
-                          e.remaining
-                            ? action.mutate(
+                        disabled={action.isPending || isFull}
+                        onClick={() => {
+                          setAttempt({ area: "social", id: e.id });
+                          action.mutate(
                                 { area: "social", id: e.id, input: { action: "join" } },
                                 {
                                   onSuccess: (d) =>
@@ -751,28 +709,17 @@ export function CourtsView({
                                       hold: d as unknown as Hold,
                                     }),
                                 },
-                              )
-                            : action.mutate({
-                                area: "waiting",
-                                input: {
-                                  courtId: e.court.id,
-                                  eventId: e.id,
-                                  day: new Intl.DateTimeFormat("en-CA", {
-                                    timeZone: "Asia/Kolkata",
-                                  }).format(new Date(e.startsAt)),
-                                  hour: Number(
-                                    new Intl.DateTimeFormat("en-GB", {
-                                      hour: "numeric",
-                                      hourCycle: "h23",
-                                      timeZone: "Asia/Kolkata",
-                                    }).format(new Date(e.startsAt)),
-                                  ),
-                                },
-                              })
-                        }
+                              );
+                        }}
                       >
-                        {e.remaining ? "Reserve Place" : "Join Waiting List"}
+                        {e.remaining ? "Book" : "Unavailable"}
                       </Button>
+                      {attempt?.area === "social" && attempt.id === e.id && action.error && (
+                        <p role="alert" className="mt-3 text-sm text-orange-900">{action.error.message}</p>
+                      )}
+                      {hold?.area === "social" && hold.eventId === e.id && (
+                        <CheckoutHold {...hold} onDone={() => setHold(null)} />
+                      )}
                     </div>
                   </article>
                 );

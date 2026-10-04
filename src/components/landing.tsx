@@ -9,9 +9,11 @@ import { ArrowLeft, ArrowRight, ArrowUpRight, Sun, Users, Coffee } from "lucide-
 import type { publicData } from "@/modules/public/queries";
 import { money } from "@/lib/utils";
 import { Button } from "./ui/button";
-import { PlanCard } from "./plan-card";
+import { MembershipBackground } from "./membership-background";
+import { MembershipOptions } from "./membership-options";
 import { EnquiryForm } from "./enquiry-form";
 import { LandingHero } from "./landing-hero";
+import { TrialSportAnimation } from "./trial-sport-animation";
 type Data = Awaited<ReturnType<typeof publicData>>;
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 const stories = [
@@ -26,7 +28,7 @@ function CourtSketch() {
     <path className="court-sketch-line" d="M5 151C61 131 102 182 151 150s79-6 134-31" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 7"/>
   </svg>;
 }
-export function Landing({ data }: { data: Data }) {
+export function Landing({ data, signedIn, localMode }: { data: Data; signedIn: boolean; localMode: boolean }) {
   const root = useRef<HTMLDivElement>(null);
   const [story, setStory] = useState(0);
   useGSAP(() => {
@@ -47,35 +49,7 @@ export function Landing({ data }: { data: Data }) {
       <div className="facility-grid grid-flow-dense"><Link href="/book" className="image-card experience-feature scale-image"><Image src="/images/tennis.jpg" alt="Sunlit tennis courts" fill sizes="(max-width:640px) 100vw, 65vw"/><div className="caption"><span className="eyebrow text-white/70">Room to raise your game</span><h3 className="mt-3 text-3xl font-medium text-white">Your next great session.</h3><p className="mt-3 max-w-sm text-sm text-white/75">Premium surfaces. Thoughtful lighting.<br/>A little less distraction. A little more play.</p></div></Link><div className="experience-card experience-card-dark"><Sun className="text-orange-500" size={28}/><h3 className="mt-5 text-xl">Play on your time.</h3><p className="mt-3 text-sm text-neutral-300">Early riser or under-the-lights player?<br/>{data.settings.openHour}:00–{data.settings.closeHour}:00, every day.</p><span className="experience-card-number">01</span></div><div className="experience-card experience-card-light"><Users className="text-orange-600" size={28}/><h3 className="mt-5 text-xl">Good company, included.</h3><p className="mt-3 text-sm text-[#5e5a54]">Shared courts, social Fridays, and a community that welcomes your first game.</p><span className="experience-card-number">02</span></div></div></div>
     </section>
     <section id="memberships" className="chapter relative overflow-hidden border-y border-white/10 bg-[#0a0a0a] isolate">
-      <div className="pointer-events-none absolute inset-0 -z-10 select-none overflow-hidden" aria-hidden="true">
-        {/* Crisp base layer - sharp near top */}
-        <Image
-          src="/images/membership-bg.png"
-          alt=""
-          fill
-          sizes="100vw"
-          className="scale-105 object-cover object-center"
-        />
-        {/* Blurred overlay transitioning in towards the cards */}
-        <div
-          className="absolute inset-0"
-          style={{
-            maskImage: "linear-gradient(to bottom, transparent 0%, transparent 15%, black 50%, black 100%)",
-            WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, transparent 15%, black 50%, black 100%)",
-          }}
-        >
-          <Image
-            src="/images/membership-bg.png"
-            alt=""
-            fill
-            sizes="100vw"
-            className="scale-105 object-cover object-center filter blur-[6px]"
-          />
-        </div>
-        {/* Dark overlay: lighter near top so turf is vivid, deepening towards cards and bottom */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/55 to-[#0b0b0b]" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0b0b0b]/60 via-transparent to-[#0b0b0b]" />
-      </div>
+      <MembershipBackground />
       <div className="site-width relative z-10">
         <div className="mb-12 flex flex-wrap items-end justify-between gap-6">
           <div>
@@ -93,13 +67,13 @@ export function Landing({ data }: { data: Data }) {
             <ArrowUpRight size={16} className="text-orange-400" />
           </Link>
         </div>
-        <div className="grid gap-6 md:grid-cols-3">{data.plans.map(plan => <PlanCard plan={plan} key={plan.id}/>)}</div>
+        <MembershipOptions plans={data.plans} signedIn={signedIn} localMode={localMode}/>
         <p className="mt-8 text-center text-xs text-neutral-400">One club. Four sports. Membership benefits follow you, from court to clubhouse.</p>
       </div>
     </section>
     <section className="chapter site-width gear-section grid gap-14 lg:grid-cols-[.8fr_1.2fr]"><div><div className="gear-title max-w-sm"><p className="eyebrow mb-5 text-orange-400">The Champions Shop</p><h2 className="section-title">Good gear.<br/>Great games.</h2><p className="soft-text mt-6 text-sm">The things that make a difference. Explore our edit of court essentials, performance kit and everyday favourites.</p><Button asChild variant="outline" className="mt-7"><Link href="/shop">Explore the shop<ArrowUpRight size={16}/></Link></Button></div></div><div className="grid grid-cols-2 gap-x-5 gap-y-9">{featured.map(product => <Link href={`/shop/${product.id}`} className="group" key={product.id}><div className="relative aspect-square overflow-hidden rounded bg-[#e7e5de]"><Image src={product.image} alt={product.name} fill sizes="(max-width:640px) 45vw, 30vw" className="object-contain p-7 transition-transform duration-700 group-hover:scale-105"/></div><p className="mt-4 text-[10px] uppercase tracking-widest text-neutral-500">{product.sport === "all" ? "Club essentials" : product.sport}</p><h3 className="mt-2 text-sm">{product.name}</h3><p className="mt-2 text-sm text-neutral-400">{money(product.variants[0]?.pricePaise || 0)}</p></Link>)}</div></section>
     <section className="chapter border-y border-white/10 bg-[#151515]"><div className="site-width grid items-center gap-14 lg:grid-cols-2"><div className="image-card scale-image relative h-[380px] md:h-[470px]"><Image src={stories[story].image} alt="The Champions Club experience" fill sizes="(max-width:1023px) 100vw, 50vw"/></div><div className="max-w-lg"><Coffee className="mb-6 text-orange-400" size={30}/><p className="eyebrow mb-5 text-neutral-500">Clubhouse Kitchen & Bar</p><div aria-live="polite"><h2 className="section-title">{stories[story].title}</h2><p className="soft-text mt-7 text-sm">{stories[story].text}</p></div><Link className="mt-8 inline-flex items-center gap-3 border-b border-white/50 pb-2 text-sm" href="/clubhouse">Find your flavour<ArrowUpRight size={16}/></Link><div className="mt-9 flex items-center gap-3"><button aria-label="Previous club story" className="rounded-full border border-white/20 p-3" onClick={() => setStory((story + 2) % 3)}><ArrowLeft size={18}/></button><button aria-label="Next club story" className="rounded-full border border-white/20 p-3" onClick={() => setStory((story + 1) % 3)}><ArrowRight size={18}/></button><span className="ml-3 text-xs text-neutral-500">{story + 1} / 3</span></div></div></div></section>
-    <section className="chapter site-width"><div className="relative overflow-hidden rounded bg-orange-500 p-9 text-[#17100c] md:p-16"><div className="relative z-10 max-w-3xl"><p className="eyebrow mb-6">Your first game starts here</p><h2 className="section-title">A new favourite sport<br/>is one session away.</h2><p className="mt-6 max-w-lg text-sm leading-relaxed text-black/70">Curious about padel? Picking up a racket again? Explore our courts and ask the front desk about your first session.</p><Button asChild variant="secondary" className="mt-8 bg-[#141414] text-white hover:bg-[#303030]"><Link href="/book?trial=true">Explore trial sessions<ArrowUpRight size={16}/></Link></Button></div><div className="absolute -right-16 -top-24 size-[450px] rounded-full border-[70px] border-black/8"/></div></section>
+    <section className="chapter site-width"><div className="trial-neon-card"><div className="trial-neon-copy"><h2>Find your next game.</h2><p>Four sports. One place to start.<br/>Try a session and find your favourite.</p><Button asChild className="trial-book-button"><Link href="/book?trial=true">Explore trial sessions<ArrowUpRight size={16}/></Link></Button></div><TrialSportAnimation/></div></section>
     <section id="contact" className="chapter relative overflow-hidden border-t border-white/10 isolate">
       {/* Striped grass background with perimeter vignette */}
       <div className="pointer-events-none absolute inset-0 -z-10 select-none overflow-hidden" aria-hidden="true">

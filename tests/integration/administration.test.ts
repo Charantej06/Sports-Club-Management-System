@@ -795,6 +795,13 @@ test("Mock provider capture is amount-verified and competing retries allocate ex
   };
   try {
     assert(gatewayConfigured());
+    delete process.env.RAZORPAY_WEBHOOK_SECRET;
+    assert(gatewayConfigured(), "Standard Checkout does not require a webhook secret");
+    const belowMinimum = await invoice(99);
+    await assert.rejects(
+      () => createIntent(member, randomUUID(), { kind: "invoice", targetId: belowMinimum.id }),
+      /at least ₹1/,
+    );
     const key = randomUUID(),
       input = { kind: "invoice", targetId: i.id } as const;
     const a = await createIntent(member, key, input),

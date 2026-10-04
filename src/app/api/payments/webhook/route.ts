@@ -5,7 +5,7 @@ import { gatewayConfigured, validSignature } from "@/modules/billing/gateway";
 import { db } from "@/lib/db";
 export const POST = route(async (request) => {
   assert(
-    gatewayConfigured(),
+    gatewayConfigured() && Boolean(process.env.RAZORPAY_WEBHOOK_SECRET),
     "GATEWAY_UNCONFIGURED",
     "Payment provider is unconfigured.",
     503,

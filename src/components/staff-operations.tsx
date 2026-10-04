@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { api } from "@/lib/api-client";
 import { money } from "@/lib/utils";
+import { termDays, termPrice, type BillingPeriod } from "@/modules/membership/terms";
 import type {
   Court,
   Reservation,
@@ -282,6 +283,7 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
     [member, setMember] = useState<Member | null>(null),
     [guest, setGuest] = useState(""),
     [method, setMethod] = useState("CASH"),
+    [membershipPeriod, setMembershipPeriod] = useState<BillingPeriod>("quarterly"),
     [selected, setSelected] = useState<string | null>(null);
   const query = useWorkspace<{
     courts: Json<Court>[];
@@ -566,6 +568,7 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
                   userId: member.id,
                   planId: p.id,
                   planVersion: new Date(p.updatedAt).toISOString(),
+                  period: membershipPeriod,
                   action: String(f.get("action")),
                   acceptPolicy: true,
                   method,
@@ -581,9 +584,17 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
             <select name="planId">
               {plans.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} · {money(p.pricePaise)} · {p.durationDays} days
+                  {p.name} · {money(termPrice(p.pricePaise, membershipPeriod))} · {termDays(membershipPeriod, p.durationDays)} days
                 </option>
               ))}
+            </select>
+          </label>
+          <label>
+            Billing period
+            <select name="period" value={membershipPeriod} onChange={(event) => setMembershipPeriod(event.target.value as BillingPeriod)}>
+              <option value="monthly">Monthly · 30 days</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="annual">Annual · 365 days, save 10%</option>
             </select>
           </label>
           <label>
@@ -1708,13 +1719,12 @@ export function Kitchen() {
   >("kitchen");
   const action = useAction();
   return (
-    <div className="space-y-6">
+    <div className="kitchen-workspace space-y-6">
       <div className="surface">
         <h2 className="text-xl font-semibold">Kitchen preparation queue</h2>
-        <p className="mt-3 text-sm text-slate-500">
-          Payment is independent of preparation. Additional orders appear as new
-          tickets; cancelled items update the revision. Review an amendment
-          before advancing.
+        <p className="mt-3 text-sm text-slate-600">
+          Prepare orders in queue order. Check item notes and amendments before
+          advancing a ticket. Payment is handled separately.
         </p>
       </div>
       <Feedback action={action} />
@@ -1723,40 +1733,52 @@ export function Kitchen() {
           {query.error.message}
         </p>
       )}
-      {!query.data?.length && (
-        <div className="surface">No open kitchen tickets.</div>
+      {query.isPending && <div className="surface" role="status">Loading kitchen tickets…</div>}
+      {!query.isPending && !query.error && !query.data?.length && (
+        <div className="surface">No open kitchen tickets. New orders will appear here automatically.</div>
       )}
+      <div className="kitchen-ticket-list">
       {query.data?.map((t) => (
-        <article key={t.id} className="surface space-y-4">
+        <article key={t.id} className="surface kitchen-ticket" data-preparation={t.preparation}>
           <div className="flex flex-wrap justify-between gap-3">
-            <h3 className="font-semibold">
-              {t.order.table.name} · Order #{t.revision}
-              {t.revision > 1 ? " · ADDITION" : ""}
-            </h3>
-            <span className="text-xs text-orange-700">
-              {t.preparation} · revision {t.version}
-              {t.version > 1 ? " · updated" : ""}
+            <div>
+              <h3 className="kitchen-table">{t.order.table.name}</h3>
+              <p className="kitchen-ticket-reference">Order #{t.revision} · revision {t.version}</p>
+            </div>
+            <span className="kitchen-status">
+              {({ INCOMING: "New order", ACCEPTED: "Accepted", COOKING: "Cooking", READY: "Ready to serve", SERVED: "Served", CANCELLED: "Cancelled" } as Record<string, string>)[t.preparation] || t.preparation}
             </span>
           </div>
-          <p className="text-xs text-slate-500">
-            Waiting{" "}
+          {(t.revision > 1 || t.version > 1) && <p className="kitchen-amendment">
+            {t.revision > 1 ? "Additional order" : "Ticket updated"} — review the items below.
+          </p>}
+          <div className="kitchen-ticket-meta">
+            <p className="kitchen-wait">Waiting <strong>
             {Math.max(
               0,
               Math.floor((Date.now() - +new Date(t.createdAt)) / 60000),
-            )}{" "}
-            min · Bill payment: {t.order.paymentStatus}
-          </p>
+            )} min</strong></p>
+            <p>Bill payment: {t.order.paymentStatus.toLowerCase().replaceAll("_", " ")}</p>
+          </div>
+          <div className="kitchen-lines">
           {t.lines.map((l) => (
-            <p
+            <div
               key={l.id}
-              className={`text-sm ${l.status === "CANCELLED" ? "line-through text-slate-400" : ""}`}
+              className={`kitchen-line ${l.status === "CANCELLED" ? "is-cancelled" : ""}`}
             >
-              {l.quantity} × {l.name}
-              {l.note ? ` · NOTE: ${l.note}` : ""} · {l.status}
-            </p>
+              <span className="kitchen-quantity" aria-label={`${l.quantity} portions`}>{l.quantity}×</span>
+              <div>
+                <p className="kitchen-item-name">{l.name}</p>
+                {l.note && <p className="kitchen-item-note"><strong>Note:</strong> {l.note}</p>}
+                <span className="kitchen-line-status">{l.status.toLowerCase().replaceAll("_", " ")}</span>
+              </div>
+            </div>
           ))}
+          </div>
           {["INCOMING", "ACCEPTED", "COOKING"].includes(t.preparation) && (
             <Button
+              className="kitchen-action"
+              aria-label={`${t.order.table.name}, order ${t.revision}: mark ${({ INCOMING: "accepted", ACCEPTED: "cooking", COOKING: "ready" } as Record<string, string>)[t.preparation]}`}
               disabled={action.isPending}
               onClick={() =>
                 action.mutate({
@@ -1775,8 +1797,8 @@ export function Kitchen() {
                 })
               }
             >
-              Mark{" "}
-              {
+              {action.isPending ? "Updating ticket…" : "Mark "}
+              {!action.isPending && (
                 (
                   {
                     INCOMING: "accepted",
@@ -1784,11 +1806,12 @@ export function Kitchen() {
                     COOKING: "ready",
                   } as Record<string, string>
                 )[t.preparation]
-              }
+              )}
             </Button>
           )}
         </article>
       ))}
+      </div>
     </div>
   );
 }

@@ -21,6 +21,7 @@ import {
   purchaseSchema,
 } from "@/modules/membership/service";
 import { ageAt } from "@/modules/membership/rules";
+import { termPrice } from "@/modules/membership/terms";
 import { actBooking, actSocial } from "@/modules/bookings/service";
 import { actOrder } from "@/modules/shop/service";
 import { refreshBill } from "@/modules/clubhouse/service";
@@ -38,8 +39,7 @@ export function gatewayConfigured() {
     process.env.PAYMENT_MODE === "razorpay" &&
     Boolean(
       process.env.RAZORPAY_KEY_ID &&
-        process.env.RAZORPAY_KEY_SECRET &&
-        process.env.RAZORPAY_WEBHOOK_SECRET,
+        process.env.RAZORPAY_KEY_SECRET,
     )
   );
 }
@@ -78,7 +78,7 @@ async function provider(path: string, body?: unknown) {
     response.ok,
     "GATEWAY_ERROR",
     "The payment provider could not complete this request. Try again.",
-    502,
+    response.status === 401 ? 401 : 500,
   );
   return response.json() as Promise<{
     id: string;
@@ -271,7 +271,7 @@ export async function createIntent(
           "Junior players must be under 18 at term start.",
           422,
         );
-        amountPaise = plan.pricePaise;
+        amountPaise = termPrice(plan.pricePaise, input.input.period);
       } else {
         let invoiceId: string | null = input.targetId;
         if (input.kind === "booking") {
@@ -339,6 +339,8 @@ export async function createIntent(
         );
       }
       assert(amountPaise > 0, "NO_PAYMENT", "This charge requires no payment.");
+      assert(Number.isSafeInteger(amountPaise) && amountPaise >= 100,
+        "MINIMUM_AMOUNT", "Online payments require at least ₹1 (100 paise).", 400);
       const id = randomUUID();
       const order = await provider("orders", {
         amount: amountPaise,

@@ -11,6 +11,7 @@ import { api } from "@/lib/api-client";
 import { money, date } from "@/lib/utils";
 import { GatewayCheckout, usePaymentModes } from "./gateway-checkout";
 import { activeTerm, type MeData } from "@/modules/account/types";
+import { billingPeriods, termDays, termPrice, type BillingPeriod } from "@/modules/membership/terms";
 export function MembershipOptions({
   plans,
   signedIn,
@@ -29,6 +30,7 @@ export function MembershipOptions({
     enabled: signedIn,
   });
   const [plan, setPlan] = useState<PlanView | null>(null);
+  const [period, setPeriod] = useState<BillingPeriod>("quarterly");
   const [accepted, setAccepted] = useState(false);
   const [key, setKey] = useState("");
   const current = me.data && activeTerm(me.data.memberships);
@@ -54,6 +56,7 @@ export function MembershipOptions({
           action,
           acceptPolicy: true,
           planVersion: plan?.planVersion,
+          period,
         }),
       }),
     onSuccess: async () => {
@@ -66,9 +69,18 @@ export function MembershipOptions({
   });
   return (
     <>
+      <div className="mb-7 flex justify-center">
+        <div className="inline-flex max-w-full gap-1 rounded-full border border-white/15 bg-[#303030] p-1" role="group" aria-label="Membership billing period">
+          {billingPeriods.map((option) => (
+            <button key={option} type="button" aria-pressed={period === option} onClick={() => setPeriod(option)} className={`min-w-0 rounded-full px-4 py-2.5 text-sm font-medium capitalize transition-colors sm:min-w-28 ${period === option ? "bg-[#171717] text-white shadow-sm ring-1 ring-white/20" : "text-neutral-300 hover:text-white"}`}>
+              {option === "annual" ? "Annual · save 10%" : option}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="grid gap-5 lg:grid-cols-3">
         {plans.map((p) => (
-          <PlanCard key={p.id} plan={p}>
+          <PlanCard key={p.id} plan={p} period={period}>
             {!signedIn ? (
               <Button asChild variant={p.id === "gold" ? "default" : "outline"}>
                 <Link href="/login">
@@ -133,11 +145,11 @@ export function MembershipOptions({
             <div className="my-7 space-y-4 rounded border border-white/10 p-5 text-sm">
               <div className="flex justify-between">
                 <span>{plan?.name} membership</span>
-                <strong>{plan && money(plan.pricePaise)}</strong>
+                <strong>{plan && money(termPrice(plan.pricePaise, period))}</strong>
               </div>
               <div className="flex justify-between text-neutral-400">
                 <span>Term</span>
-                <span>{plan?.durationDays} days</span>
+                <span>{plan && termDays(period, plan.durationDays)} days · {period}</span>
               </div>
               <div className="flex justify-between text-neutral-400">
                 <span>Starts</span>
@@ -149,7 +161,7 @@ export function MembershipOptions({
               </div>
               <div className="flex justify-between border-t border-white/10 pt-4">
                 <span>Total · INR</span>
-                <strong>{plan && money(plan.pricePaise)}</strong>
+                <strong>{plan && money(termPrice(plan.pricePaise, period))}</strong>
               </div>
             </div>
             <p className="notice">
@@ -196,6 +208,7 @@ export function MembershipOptions({
                         action,
                         acceptPolicy: true,
                         planVersion: plan?.planVersion,
+                        period,
                       },
                     }}
                     onDone={() => {

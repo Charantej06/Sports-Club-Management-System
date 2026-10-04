@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { hashPassword } from "better-auth/crypto";
 import { db } from "../src/lib/db";
+import { productImage } from "../src/modules/shop/product-images";
 import { purchaseMembership } from "../src/modules/membership/service";
 import type { Role } from "../src/generated/prisma/client";
 
@@ -81,7 +82,7 @@ async function main() {
   }
   for (const plan of plans) await db.membershipPlan.upsert({ where: { id: plan.id }, create: plan, update: {} });
   for (const [index, [id, name, sport, category, price, image, featured]] of catalogue.entries()) {
-    await db.product.upsert({ where: { id }, create: { id, name, sport, category, description: `${name}. Selected for club players, with dependable performance for practice and match day. Collect at the Champions Shop.`, image: `/images/products/${image}.svg`, featured: !!featured }, update: {} });
+    await db.product.upsert({ where: { id }, create: { id, name, sport, category, description: `${name}. Selected for club players, with dependable performance for practice and match day. Collect at the Champions Shop.`, image: productImage(id, `/images/products/${image}.svg`), featured: !!featured }, update: {} });
     const labels = category === "Apparel" ? ["S", "M", "L", "XL"] : category === "Shoes" ? ["UK 7", "UK 8", "UK 9", "UK 10"] : category === "Rackets" && sport === "tennis" ? ["Grip 2", "Grip 3"] : ["Standard"];
     for (const [n, label] of labels.entries()) {
       const variantId = `${id}-${n}`;

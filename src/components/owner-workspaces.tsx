@@ -7,6 +7,7 @@ import { money, date, dateTime } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ReceiptLink, type Json } from "./operations-ui";
+import { ReportCharts } from "./report-charts";
 import type {
   financialReport,
   operationalReport,
@@ -83,13 +84,13 @@ function Summary({
     <button
       type="button"
       onClick={onClick}
-      className="surface text-left hover:border-orange-300"
+      className="surface report-summary text-left"
     >
-      <span className="text-xs text-slate-600">{label}</span>
-      <span className="mt-3 block text-2xl font-semibold">{money(value)}</span>
+      <span className="report-summary-label">{label}</span>
+      <span className="report-summary-value">{money(value)}</span>
       {onClick && (
-        <span className="mt-3 block text-xs text-orange-800">
-          View records →
+        <span className="report-summary-link">
+          View supporting records
         </span>
       )}
     </button>
@@ -134,7 +135,7 @@ export function OwnerReports() {
     scrollToRecords();
   };
   return (
-    <div className="space-y-5">
+    <div className="owner-reports space-y-5">
       <div className="surface">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -231,6 +232,23 @@ export function OwnerReports() {
               onClick={() => drill("outstanding")}
             />
           </div>
+          <ReportCharts
+            departments={r.departments}
+            methods={r.methods}
+            collectionsPaise={r.totals.collectionsPaise}
+            onDepartment={(value) => {
+              setDepartment(value);
+              setPaymentMethod("ALL");
+              setDetail("sales");
+              scrollToRecords();
+            }}
+            onMethod={(value) => {
+              setPaymentMethod(value);
+              setDepartment("ALL");
+              setDetail("payments");
+              scrollToRecords();
+            }}
+          />
           <div className="surface overflow-x-auto">
             <h3 className="font-semibold">Department breakdown</h3>
             <table className="mt-4 w-full text-left text-sm">
@@ -534,6 +552,9 @@ function OperationalAlerts({ data }: { data: Operations }) {
             <summary className="cursor-pointer text-sm">
               {c.name} · {c.bookedHours}/{c.availableHours} hours · {c.percent}%
             </summary>
+            <div className="report-utilization-track" aria-hidden="true">
+              <span style={{ width: `${Math.min(100, Math.max(0, c.percent))}%` }} />
+            </div>
             {c.records.map((r) => (
               <p key={r.id} className="mt-2 break-all text-xs text-slate-600">
                 {dateTime(r.startsAt)} · {r.kind} · {r.id}

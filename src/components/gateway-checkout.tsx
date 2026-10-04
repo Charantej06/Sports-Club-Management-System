@@ -1,11 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { Button } from "./ui/button";
 import { money, date } from "@/lib/utils";
 type CheckoutResponse = {
   razorpay_payment_id: string;
+  razorpay_order_id: string;
   razorpay_signature: string;
 };
 type RazorpayCheckout = new (options: {
@@ -99,7 +100,11 @@ export function GatewayHistory() {
 export function GatewayCheckout({
   input,
   onDone,
+  autoStart = false,
+  onPendingChange,
 }: {
+  autoStart?: boolean;
+  onPendingChange?: (pending: boolean) => void;
   input: Record<string, unknown>;
   onDone: () => void;
 }) {
@@ -109,6 +114,17 @@ export function GatewayCheckout({
       null,
     ),
     client = useQueryClient();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const started = useRef(false);
+  useEffect(() => {
+    onPendingChange?.(pending);
+  }, [pending, onPendingChange]);
+  useEffect(() => {
+    if (autoStart && !started.current) {
+      started.current = true;
+      buttonRef.current?.click();
+    }
+  }, [autoStart]);
   async function checkout() {
     setPending(true);
     setMessage("");
@@ -148,6 +164,7 @@ export function GatewayCheckout({
               body: JSON.stringify({
                 id: intent.id,
                 paymentId: response.razorpay_payment_id,
+                orderId: response.razorpay_order_id,
                 signature: response.razorpay_signature,
               }),
             });
@@ -184,7 +201,12 @@ export function GatewayCheckout({
   }
   return (
     <div>
-      <Button type="button" disabled={pending} onClick={checkout}>
+      <Button
+        ref={buttonRef}
+        type="button"
+        disabled={pending}
+        onClick={checkout}
+      >
         {pending ? "Verifying payment…" : "Pay securely · Razorpay"}
       </Button>
       {message && (
