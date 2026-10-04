@@ -157,7 +157,7 @@ test("A new member walks in: reception registers them, sells a plan, and staff c
   const invite = await db.mailMessage.findFirstOrThrow({ where: { to: email } });
   assert.match(invite.body, new RegExp(first.data.championsId), "the invitation tells them their Champions ID");
   const plan = await db.membershipPlan.findUniqueOrThrow({ where: { id: "silver" } });
-  await purchaseMembership(first.data.id, key(), { planId: "silver", months: 3, action: "purchase", acceptPolicy: true, planVersion: plan.updatedAt.toISOString() }, new Date(), { actor: reception, method: "CASH" });
+  await purchaseMembership(first.data.id, key(), { planId: "silver", period: "quarterly", action: "purchase", acceptPolicy: true, planVersion: plan.updatedAt.toISOString() }, new Date(), { actor: reception, method: "CASH" });
   const profile = await memberProfile(reception, first.data.id);
   assert.equal(profile.current?.plan.name, "Silver");
   assert.ok(profile.daysLeft! >= 88 && profile.daysLeft! <= 93);

@@ -1,4 +1,3 @@
-import { isTermMonths, termDays, termPrice, type TermMonths } from "@/modules/membership/terms";
 import { randomUUID, randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { z } from "zod";
@@ -38,11 +37,6 @@ export const crmSchema = z.discriminatedUnion("action", [
     .object({
       action: z.literal("quote"),
       planId: z.enum(["gold", "silver", "junior"]),
-      months: z
-        .number()
-        .int()
-        .refine(isTermMonths, "Choose 1, 3 or 12 months.")
-        .default(1),
     })
     .strict(),
   z.object({ action: z.literal("convert") }).strict(),
@@ -51,7 +45,7 @@ export function actLead(
   actor: Actor,
   key: string,
   id: string,
-  input: z.input<typeof crmSchema>,
+  input: z.infer<typeof crmSchema>,
 ) {
   roles(actor, ["OWNER", "RECEPTION"]);
   return operation(
@@ -115,24 +109,20 @@ export function actLead(
           where: { id: input.planId },
         });
         assert(p?.active, "PLAN_UNAVAILABLE", "Plan unavailable.");
-        const months = (input.months ?? 1) as TermMonths;
-        const price = termPrice(p, months);
         const q = await tx.leadQuote.create({
           data: {
             leadId: id,
             planId: p.id,
             snapshot: {
               name: p.name,
-              months,
-              durationDays: termDays(new Date(), months),
-              monthlyPaise: p.pricePaise,
+              durationDays: p.durationDays,
               courtDiscountBps: p.courtDiscountBps,
               shopDiscountBps: p.shopDiscountBps,
               foodDiscountBps: p.foodDiscountBps,
               freeSessionsWeek: p.freeSessionsWeek,
               planVersion: p.updatedAt.toISOString(),
             },
-            totalPaise: price.totalPaise,
+            totalPaise: p.pricePaise,
             validUntil: new Date(Date.now() + 7 * 86400000),
           },
         });

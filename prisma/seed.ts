@@ -106,7 +106,7 @@ async function main() {
   for (const [slug, title, salaryPaise] of [["reception", "Reception associate", 2800000], ["cashier", "Waiter / cashier", 2600000], ["kitchen", "Kitchen chef", 3500000]] as const) {
     await db.employee.upsert({ where: { userId: `demo-${slug}` }, create: { userId: `demo-${slug}`, title, salaryPaise }, update: {} });
   }
-  if (!await db.membership.count({ where: { userId: "demo-member" } }) && process.env.PAYMENT_MODE === "local") await purchaseMembership("demo-member", "seed-gold", { planId: "gold", action: "purchase", acceptPolicy: true, months: 3, planVersion: (await db.membershipPlan.findUniqueOrThrow({ where: { id: "gold" } })).updatedAt.toISOString() });
+  if (!await db.membership.count({ where: { userId: "demo-member" } }) && process.env.PAYMENT_MODE === "local") await purchaseMembership("demo-member", "seed-gold", { planId: "gold", action: "purchase", acceptPolicy: true, period: "quarterly", planVersion: (await db.membershipPlan.findUniqueOrThrow({ where: { id: "gold" } })).updatedAt.toISOString() });
   if (!await db.membership.count({ where: { userId: "demo-expired" } })) await db.membership.create({ data: { userId: "demo-expired", planId: "silver", startsAt: new Date(Date.now() - 100 * 86400000), endsAt: new Date(Date.now() - 10 * 86400000), pricePaise: 650000, planSnapshot: { name: "Silver", months: 3, durationDays: 90, courtDiscountBps: 1500, shopDiscountBps: 500, foodDiscountBps: 500, freeSessionsWeek: 0 } } });
   console.log("Seeded 4 sports, 11 courts, 3 plans, 36 products, 14 menu items and 8 demo accounts. Existing records preserved.");
 }

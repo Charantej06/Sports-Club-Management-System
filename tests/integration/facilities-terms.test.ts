@@ -7,7 +7,7 @@ import { db } from "../../src/lib/db";
 import { AppError } from "../../src/lib/errors";
 import { holdBooking, actBooking } from "../../src/modules/bookings/service";
 import { purchaseMembership } from "../../src/modules/membership/service";
-import { addMonths, termPrice } from "../../src/modules/membership/terms";
+import { termDays, termPrice } from "../../src/modules/membership/terms";
 import { manageFacility } from "../../src/modules/facilities/service";
 import { availability } from "../../src/modules/public/availability";
 import { publicData } from "../../src/modules/public/queries";
@@ -83,18 +83,17 @@ after(async () => {
 test("Membership terms: 1 month, 3 months and annual are priced from the monthly rate and chain without overlap", async () => {
   const plan = await db.membershipPlan.findUniqueOrThrow({ where: { id: "silver" } });
   const version = plan.updatedAt.toISOString();
-  const first = await purchaseMembership(buyer.id, randomUUID(), { planId: "silver", months: 1, action: "purchase", acceptPolicy: true, planVersion: version });
-  const quarter = await purchaseMembership(buyer.id, randomUUID(), { planId: "silver", months: 3, action: "renew", acceptPolicy: true, planVersion: version });
-  const annual = await purchaseMembership(buyer.id, randomUUID(), { planId: "silver", months: 12, action: "renew", acceptPolicy: true, planVersion: version });
+  const first = await purchaseMembership(buyer.id, randomUUID(), { planId: "silver", period: "monthly", action: "purchase", acceptPolicy: true, planVersion: version });
+  const quarter = await purchaseMembership(buyer.id, randomUUID(), { planId: "silver", period: "quarterly", action: "renew", acceptPolicy: true, planVersion: version });
+  const annual = await purchaseMembership(buyer.id, randomUUID(), { planId: "silver", period: "annual", action: "renew", acceptPolicy: true, planVersion: version });
   const terms = await db.membership.findMany({ where: { userId: buyer.id }, orderBy: { startsAt: "asc" } });
   assert.equal(terms.length, 3);
-  assert.deepEqual(terms.map((t) => t.pricePaise), [termPrice(plan, 1).totalPaise, termPrice(plan, 3).totalPaise, termPrice(plan, 12).totalPaise]);
-  assert.ok(terms[2].pricePaise < plan.pricePaise * 12, "annual must be cheaper than twelve single months");
-  assert.equal(terms[0].endsAt.toISOString(), addMonths(terms[0].startsAt, 1).toISOString());
+  assert.deepEqual(terms.map((t) => t.pricePaise), [termPrice(plan.pricePaise, "monthly"), termPrice(plan.pricePaise, "quarterly"), termPrice(plan.pricePaise, "annual")]);
+  assert.ok(terms[2].pricePaise < termPrice(plan.pricePaise, "monthly") * 12, "annual must be cheaper than twelve single months");
+  assert.equal(Math.round((+terms[0].endsAt - +terms[0].startsAt) / 86400000), termDays("monthly", plan.durationDays));
   assert.equal(terms[1].startsAt.toISOString(), terms[0].endsAt.toISOString(), "renewal starts when the previous term ends");
-  assert.equal(terms[1].endsAt.toISOString(), addMonths(terms[1].startsAt, 3).toISOString());
-  assert.equal(terms[2].endsAt.toISOString(), addMonths(terms[2].startsAt, 12).toISOString());
-  assert.equal((terms[2].planSnapshot as { months: number }).months, 12);
+  assert.equal(Math.round((+terms[1].endsAt - +terms[1].startsAt) / 86400000), termDays("quarterly", plan.durationDays));
+  assert.equal(Math.round((+terms[2].endsAt - +terms[2].startsAt) / 86400000), termDays("annual", plan.durationDays));
   for (const [result, term] of [[first, terms[0]], [quarter, terms[1]], [annual, terms[2]]] as const) {
     const invoice = await db.invoice.findUniqueOrThrow({ where: { id: result.invoiceId }, include: { allocations: true } });
     assert.equal(invoice.totalPaise, term.pricePaise, "invoice reflects the server-calculated term price");
@@ -104,17 +103,17 @@ test("Membership terms: 1 month, 3 months and annual are priced from the monthly
 test("Membership terms reject unsupported lengths and the same key cannot be reused for a different term", async () => {
   const plan = await db.membershipPlan.findUniqueOrThrow({ where: { id: "gold" } });
   const version = plan.updatedAt.toISOString();
-  const invalid = await fetch(`${base}/api/me/membership`, { method: "POST", headers: { ...headers(memberCookie), "Idempotency-Key": randomUUID() }, body: JSON.stringify({ planId: "gold", months: 7, action: "purchase", acceptPolicy: true, planVersion: version }) });
+  const invalid = await fetch(`${base}/api/me/membership`, { method: "POST", headers: { ...headers(memberCookie), "Idempotency-Key": randomUUID() }, body: JSON.stringify({ planId: "gold", period: "invalid", action: "purchase", acceptPolicy: true, planVersion: version }) });
   assert.equal(invalid.status, 422);
   const key = randomUUID();
-  const ok = await fetch(`${base}/api/me/membership`, { method: "POST", headers: { ...headers(memberCookie), "Idempotency-Key": key }, body: JSON.stringify({ planId: "gold", months: 3, action: "purchase", acceptPolicy: true, planVersion: version }) });
+  const ok = await fetch(`${base}/api/me/membership`, { method: "POST", headers: { ...headers(memberCookie), "Idempotency-Key": key }, body: JSON.stringify({ planId: "gold", period: "quarterly", action: "purchase", acceptPolicy: true, planVersion: version }) });
   assert.equal(ok.status, 201);
-  const reused = await fetch(`${base}/api/me/membership`, { method: "POST", headers: { ...headers(memberCookie), "Idempotency-Key": key }, body: JSON.stringify({ planId: "gold", months: 12, action: "purchase", acceptPolicy: true, planVersion: version }) });
+  const reused = await fetch(`${base}/api/me/membership`, { method: "POST", headers: { ...headers(memberCookie), "Idempotency-Key": key }, body: JSON.stringify({ planId: "gold", period: "annual", action: "purchase", acceptPolicy: true, planVersion: version }) });
   assert.equal(reused.status, 409);
   const term = await db.membership.findFirstOrThrow({ where: { userId: member.id } });
-  assert.equal(term.pricePaise, termPrice(plan, 3).totalPaise);
+  assert.equal(term.pricePaise, termPrice(plan.pricePaise, "quarterly"));
   // A client-supplied price can never be injected.
-  const injected = await fetch(`${base}/api/me/membership`, { method: "POST", headers: { ...headers(memberCookie), "Idempotency-Key": randomUUID() }, body: JSON.stringify({ planId: "gold", months: 1, action: "renew", acceptPolicy: true, planVersion: version, pricePaise: 1 }) });
+  const injected = await fetch(`${base}/api/me/membership`, { method: "POST", headers: { ...headers(memberCookie), "Idempotency-Key": randomUUID() }, body: JSON.stringify({ planId: "gold", period: "monthly", action: "renew", acceptPolicy: true, planVersion: version, pricePaise: 1 }) });
   assert.equal(injected.status, 422);
 });
 test("Facility management is owner-only, validated and audited", async () => {
