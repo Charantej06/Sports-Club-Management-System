@@ -46,10 +46,16 @@ function loadCheckout() {
   return scriptPromise;
 }
 export function usePaymentModes() {
-  return useQuery({
+  const query = useQuery({
     queryKey: ["payment-modes"],
     queryFn: () => api<{ local: boolean; gateway: boolean }>("/api/payments"),
   });
+  useEffect(() => {
+    if (query.data?.gateway) {
+      void loadCheckout();
+    }
+  }, [query.data?.gateway]);
+  return query;
 }
 export function GatewayHistory() {
   const query = useQuery({
@@ -103,11 +109,13 @@ export function GatewayCheckout({
   onDone,
   autoStart = false,
   onPendingChange,
+  className,
 }: {
   autoStart?: boolean;
   onPendingChange?: (pending: boolean) => void;
   input: Record<string, unknown>;
   onDone: () => void;
+  className?: string;
 }) {
   const [pending, setPending] = useState(false),
     [message, setMessage] = useState("");
@@ -123,7 +131,7 @@ export function GatewayCheckout({
   useEffect(() => {
     if (autoStart && !started.current) {
       started.current = true;
-      buttonRef.current?.click();
+      void checkout();
     }
   }, [autoStart]);
   function report(text: string) { setMessage(text); if (text) notify(text, true); }
@@ -207,13 +215,18 @@ export function GatewayCheckout({
       <Button
         ref={buttonRef}
         type="button"
+        size="lg"
         disabled={pending}
         onClick={checkout}
+        className={
+          className ||
+          "min-w-[200px] bg-[#ff6b2c] hover:bg-[#ea580c] text-white font-bold transition-all shadow-sm active:scale-[0.99]"
+        }
       >
-        {pending ? "Verifying payment…" : "Pay securely · Razorpay"}
+        {pending ? "Connecting to Razorpay…" : "Pay securely with Razorpay"}
       </Button>
       {message && (
-        <p className="mt-3 text-sm" role="status">
+        <p className="mt-3 text-sm text-red-600 font-medium" role="status">
           {message}
         </p>
       )}

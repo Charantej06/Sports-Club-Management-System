@@ -84,7 +84,7 @@ export function CourtsView({
     queryKey: ["availability", sport, day],
     queryFn: () =>
       api<Availability>(`/api/public/availability?sport=${sport}&date=${day}`),
-    refetchInterval: 5000,
+    refetchInterval: hold ? false : 5000,
     enabled: !!day,
   });
 
@@ -94,7 +94,7 @@ export function CourtsView({
       api<Json<Awaited<ReturnType<typeof socialList>>>>(
         "/api/operations/social",
       ),
-    refetchInterval: 5000,
+    refetchInterval: hold ? false : 5000,
   });
 
   const reserve = (courtId: string, hour: number) => {
@@ -197,11 +197,16 @@ export function CourtsView({
       {/* Main Professional White Booking Canvas */}
       <div className="border-t border-neutral-200 bg-[#fafafa] py-12 md:py-16">
         <div className="site-width space-y-12">
-          {/* Keep checkout accessible if the customer changes to another sport. */}
-          {hold && hold.area === "booking" && !data.sports.find((s) => s.id === sport)?.courts.some((c) => c.id === hold.courtId) && (
-            <div>
-              <CheckoutHold {...hold} onDone={() => { void availability.refetch().finally(() => setHold(null)); }} />
-            </div>
+          {/* Unified single checkout modal */}
+          {hold && (
+            <CheckoutHold
+              {...hold}
+              onDone={() => {
+                void availability.refetch();
+                void social.refetch();
+                setHold(null);
+              }}
+            />
           )}
 
           {/* STEP 1: Sport Selection */}
@@ -574,9 +579,6 @@ export function CourtsView({
                           {action.error.message.toLowerCase().includes("sign in") && <Link href="/login" className="font-semibold underline">Sign in to book</Link>}
                         </div>
                       )}
-                      {hold?.area === "booking" && hold.courtId === c.id && (
-                        <CheckoutHold {...hold} onDone={() => { void availability.refetch().finally(() => setHold(null)); }} />
-                      )}
                     </div>
 
                     {/* Court closure message if any closures occur on this day */}
@@ -721,9 +723,6 @@ export function CourtsView({
                       </Button>
                       {attempt?.area === "social" && attempt.id === e.id && action.error && (
                         <p role="alert" className="mt-3 text-sm text-orange-900">{action.error.message}</p>
-                      )}
-                      {hold?.area === "social" && hold.eventId === e.id && (
-                        <CheckoutHold {...hold} onDone={() => { void social.refetch().finally(() => setHold(null)); }} />
                       )}
                     </div>
                   </article>

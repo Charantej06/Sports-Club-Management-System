@@ -2,7 +2,6 @@ import "dotenv/config";
 import { hashPassword } from "better-auth/crypto";
 import { db } from "../src/lib/db";
 import { productImage } from "../src/modules/shop/product-images";
-import { purchaseMembership } from "../src/modules/membership/service";
 import type { Role } from "../src/generated/prisma/client";
 
 const sports = [

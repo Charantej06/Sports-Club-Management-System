@@ -1,9 +1,8 @@
 "use client";
-import * as Dialog from "@radix-ui/react-dialog";
+import { createPortal } from "react-dom";
 import { notify } from "./action-notice";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { money } from "@/lib/utils";
@@ -23,7 +22,6 @@ export type Json<T> = T extends Date
       : T;
 export function useAction() {
   const client = useQueryClient();
-  const router = useRouter();
   const [retry, setRetry] = useState<{
     fingerprint: string;
     key: string;
@@ -55,8 +53,7 @@ export function useAction() {
     },
     onError: (error) => notify(error.message, true),
     onSuccess: () => {
-      router.refresh();
-      return client.invalidateQueries();
+      void client.invalidateQueries();
     },
   });
 }
@@ -143,6 +140,7 @@ export function CheckoutHold({
 
   const [cancelling, setCancelling] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [paymentPending, setPaymentPending] = useState(false);
 
   const handleDone = () => {
     setCompleted(true);
@@ -150,7 +148,7 @@ export function CheckoutHold({
   };
 
   const handleClose = () => {
-    if (completed || cancelling) return;
+    if (completed || cancelling || paymentPending) return;
     if (action.isPending) {
       onDone();
       return;
@@ -176,27 +174,44 @@ export function CheckoutHold({
       })
     : null;
 
-  return (
-    <Dialog.Root open onOpenChange={(open) => { if (!open) handleClose(); }}><Dialog.Portal>
-    <Dialog.Overlay className="fixed inset-0 z-50 bg-black/70" />
-    <Dialog.Content aria-describedby={undefined} className={`fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl bg-white text-neutral-900 shadow-xl ${cancelling ? "opacity-75 pointer-events-none" : ""}`}>
-    <Dialog.Title className="sr-only">Complete payment</Dialog.Title>
-    <Dialog.Close
-      className="absolute right-4 top-2 z-10 rounded border border-neutral-200 bg-white px-3 py-1 text-neutral-900 transition hover:bg-neutral-100 disabled:opacity-50"
-      aria-label="Close checkout"
-      disabled={cancelling}
-      onClick={(e) => {
-        e.preventDefault();
-        handleClose();
-      }}
-    >
-      {cancelling ? "Releasing…" : "Close"}
-    </Dialog.Close>
-    <div
-      className="checkout-hold-card my-6 relative overflow-hidden rounded-xl border border-neutral-300 bg-white p-6 sm:p-8 text-neutral-900 shadow-sm"
-      role="region"
-      aria-label="Review checkout"
-    >
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+      <div
+        className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity"
+        onClick={() => {
+          if (!paymentPending && !cancelling) handleClose();
+        }}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Complete payment"
+        className={`relative z-10 my-auto max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white text-neutral-900 shadow-2xl ${cancelling ? "opacity-75 pointer-events-none" : ""}`}
+      >
+        <button
+          type="button"
+          className="absolute right-4 top-4 z-20 rounded-md border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-800 transition hover:bg-neutral-100 disabled:opacity-50"
+          aria-label="Close checkout"
+          disabled={cancelling || paymentPending}
+          onClick={(e) => {
+            e.preventDefault();
+            handleClose();
+          }}
+        >
+          {cancelling ? "Releasing…" : "Close"}
+        </button>
+        <div
+          className="checkout-hold-card relative overflow-hidden rounded-xl border border-neutral-300 bg-white p-6 sm:p-8 text-neutral-900 shadow-sm"
+          role="region"
+          aria-label="Review checkout"
+        >
       {/* Top status bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-4">
         <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-orange-800">
@@ -290,8 +305,8 @@ export function CheckoutHold({
                   kind: area === "order" ? "order" : area,
                   targetId: hold.id,
                 }}
+                onPendingChange={setPaymentPending}
                 onDone={handleDone}
-                autoStart
               />
             ) : (
               <Button
@@ -337,8 +352,10 @@ export function CheckoutHold({
       </div>
 
       <Feedback action={action} />
-    </div>
-    </Dialog.Content></Dialog.Portal></Dialog.Root>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 export function History() {
