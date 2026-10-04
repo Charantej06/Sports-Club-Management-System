@@ -10,7 +10,7 @@ import { TERM_LABELS, addMonths, termPrice, type TermMonths } from "@/modules/me
 import { Button } from "./ui/button";
 import { api } from "@/lib/api-client";
 import { money, date } from "@/lib/utils";
-import { GatewayCheckout, usePaymentModes } from "./gateway-checkout";
+import { GatewayCheckout, TestModeHint, usePaymentModes } from "./gateway-checkout";
 import { activeTerm, type MeData } from "@/modules/account/types";
 export function MembershipOptions({
   plans,
@@ -40,17 +40,16 @@ export function MembershipOptions({
   const latest = me.data?.memberships
     .filter((t) => t.status === "ACTIVE" && new Date(t.endsAt) > new Date())
     .sort((a, b) => +new Date(b.endsAt) - +new Date(a.endsAt))[0];
-  const action = current
-    ? plan?.id === latest?.planId
+  // A second membership continues after the current one ends. Switching immediately is a separate, explicit choice.
+  const [switchNow, setSwitchNow] = useState(false);
+  const differsFromCurrent = !!current && !!plan && plan.id !== current.planId;
+  const action = differsFromCurrent && switchNow
+    ? "change"
+    : latest || me.data?.memberships.length
       ? "renew"
-      : "change"
-    : latest
-      ? "renew"
-      : me.data?.memberships.length
-        ? "renew"
-        : "purchase";
+      : "purchase";
   const price = plan ? termPrice(plan, months) : null;
-  const startsAt = action === "renew" && latest ? new Date(latest.endsAt) : new Date();
+  const startsAt = action !== "change" && latest ? new Date(latest.endsAt) : new Date();
   const mutation = useMutation({
     mutationFn: () =>
       api<{ invoiceId: string }>("/api/me/membership", {
@@ -107,12 +106,13 @@ export function MembershipOptions({
                   setKey(crypto.randomUUID());
                   setPlanId(p.id);
                   setPriceUpdated(false);
+                  setSwitchNow(false);
                 }}
               >
                 {current?.planId === p.id
                   ? "Renew "
                   : current
-                    ? "Switch to "
+                    ? "Add next: "
                     : "Choose "}
                 {p.name}
                 <ArrowUpRight size={16} />
@@ -137,13 +137,17 @@ export function MembershipOptions({
           <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100%-32px)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-white/15 bg-[#141414] p-7 text-white md:p-9">
             <Dialog.Title className="text-3xl font-medium tracking-tight">
               {action === "renew"
-                ? "Keep the good games going."
+                ? current && plan?.id !== current.planId
+                  ? "Your next membership."
+                  : "Keep the good games going."
                 : action === "change"
                   ? "A new way to play."
                   : "Welcome to your club."}
             </Dialog.Title>
             <Dialog.Description className="mt-3 text-sm text-neutral-400">
-              Review your {plan?.name} membership before confirming.
+              {action === "renew" && latest
+                ? `Starts ${date(latest.endsAt)}, right after your current membership ends. Nothing you've paid for is lost.`
+                : `Review your ${plan?.name} membership before confirming.`}
             </Dialog.Description>
             <Dialog.Close
               disabled={mutation.isPending}
@@ -155,6 +159,20 @@ export function MembershipOptions({
             <div className="mt-6">
               <TermPicker plans={plan ? [plan] : plans} value={months} onChange={setMonths} />
             </div>
+            {differsFromCurrent && (
+              <fieldset className="mt-6 space-y-3 text-sm">
+                <legend className="mb-2 text-xs uppercase tracking-wider text-neutral-400">When should {plan?.name} start?</legend>
+                {[
+                  [false, `After my ${current?.planSnapshot.name} membership ends`, latest ? date(latest.endsAt) : ""],
+                  [true, "Switch right now", "replaces the time left, no refund"],
+                ].map(([value, label, hint]) => (
+                  <label key={String(value)} className="flex cursor-pointer items-start gap-3 rounded border border-white/10 p-3">
+                    <input type="radio" name="when" className="mt-1 accent-orange-500" checked={switchNow === value} onChange={() => { setSwitchNow(value as boolean); setAccepted(false); }} />
+                    <span>{label as string}<span className="block text-xs text-neutral-400">{hint as string}</span></span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
             <div className="my-7 space-y-4 rounded border border-white/10 p-5 text-sm">
               <div className="flex justify-between">
                 <span>{plan?.name} membership</span>
@@ -208,7 +226,7 @@ export function MembershipOptions({
               <span>
                 {action === "change"
                   ? "I understand this change starts immediately, replaces remaining and scheduled terms, and has no prorated refund."
-                  : "I agree to the membership policy. Renewals extend my term; paid memberships are non-refundable except for a club cancellation."}
+                  : "I agree to the membership policy. A new membership starts when my current one ends; paid memberships are non-refundable except for a club cancellation."}
               </span>
             </label>
             {priceUpdated ? (
@@ -223,9 +241,11 @@ export function MembershipOptions({
               )
             )}
             {!localMode && modes.data?.gateway ? (
-              <div className="mt-6">
+              <div className="mt-6 space-y-3">
+                <TestModeHint />
                 {accepted && (
                   <GatewayCheckout
+                    description={`${plan?.name} membership · ${TERM_LABELS[months]}`}
                     input={{
                       kind: "membership",
                       input: {

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { Button } from "./ui/button";
@@ -14,6 +14,9 @@ type RazorpayCheckout = new (options: {
   amount: number;
   currency: string;
   name: string;
+  description?: string;
+  prefill?: { name?: string; email?: string };
+  theme?: { color: string };
   handler: (response: CheckoutResponse) => void;
   modal: { ondismiss: () => void };
 }) => { open: () => void; on: (event: string, handler: () => void) => void };
@@ -46,7 +49,7 @@ function loadCheckout() {
 export function usePaymentModes() {
   return useQuery({
     queryKey: ["payment-modes"],
-    queryFn: () => api<{ local: boolean; gateway: boolean }>("/api/payments"),
+    queryFn: () => api<{ local: boolean; gateway: boolean; testMode?: boolean }>("/api/payments"),
   });
 }
 export function GatewayHistory() {
@@ -96,13 +99,29 @@ export function GatewayHistory() {
     </section>
   );
 }
+/** Razorpay's published test card; shown only while test keys are configured. */
+export function TestModeHint() {
+  const modes = usePaymentModes();
+  if (!modes.data?.gateway || !modes.data.testMode) return null;
+  return (
+    <p className="rounded-md border border-orange-300/60 bg-orange-50 p-3 text-xs text-orange-950" role="note">
+      <strong>Test mode:</strong> no real money moves. Pay with card <code>4111 1111 1111 1111</code>, any future expiry, any CVV and any name, or choose UPI <code>success@razorpay</code>. Enter <code>1234</code> if asked for an OTP.
+    </p>
+  );
+}
 export function GatewayCheckout({
   input,
   onDone,
+  autoOpen = false,
+  description,
 }: {
   input: Record<string, unknown>;
   onDone: () => void;
+  /** Open the payment window as soon as this mounts, for flows where the customer has already chosen to pay. */
+  autoOpen?: boolean;
+  description?: string;
 }) {
+  const opened = useRef(false);
   const [pending, setPending] = useState(false),
     [message, setMessage] = useState("");
   const [retry, setRetry] = useState<{ input: string; key: string } | null>(
@@ -127,12 +146,17 @@ export function GatewayCheckout({
         headers: { "Idempotency-Key": key },
         body: serialized,
       });
+      // Pre-fill who is paying so the customer isn't asked again.
+      const who = await api<{ user: { name: string; email: string } }>("/api/me").catch(() => null);
       const checkout = new window.Razorpay!({
         key: intent.keyId,
         order_id: intent.orderId,
         amount: intent.amountPaise,
         currency: "INR",
         name: "Champions Club",
+        description,
+        prefill: who ? { name: who.user.name, email: who.user.email } : undefined,
+        theme: { color: "#ff6b2c" },
         modal: {
           ondismiss: () => {
             setPending(false);
@@ -182,6 +206,12 @@ export function GatewayCheckout({
       );
     }
   }
+  useEffect(() => {
+    if (autoOpen && !opened.current) {
+      opened.current = true;
+      void checkout();
+    }
+  }, []);
   return (
     <div>
       <Button type="button" disabled={pending} onClick={checkout}>

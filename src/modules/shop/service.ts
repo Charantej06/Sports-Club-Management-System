@@ -1,3 +1,5 @@
+import { enqueueMail } from "@/modules/mail/outbox";
+import { orderConfirmationEmail } from "@/modules/mail/notifications";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
@@ -281,6 +283,16 @@ export function actOrder(
           where: { id },
           data: { status: "PAID", holdUntil: null },
         });
+        // Confirmation email (queued in this transaction, so it exists only if the payment commits).
+        const buyer = o.userId
+          ? await tx.user.findUnique({ where: { id: o.userId }, select: { name: true, email: true } })
+          : o.guestEmail
+            ? { name: o.guestName || "there", email: o.guestEmail }
+            : null;
+        if (buyer) {
+          const invoice = await tx.invoice.findUnique({ where: { id: o.invoiceId! }, select: { number: true } });
+          await enqueueMail(tx, { ...orderConfirmationEmail({ name: buyer.name, totalPaise: o.totalPaise, delivery: o.delivery, invoiceNumber: invoice?.number }), to: buyer.email, dedupeKey: `order-confirmation:${id}` });
+        }
       } else if (input.action === "cancel") {
         if (["CANCELLED", "EXPIRED"].includes(o.status)) return o;
         assert(

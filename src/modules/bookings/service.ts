@@ -1,3 +1,5 @@
+import { enqueueMail } from "@/modules/mail/outbox";
+import { bookingConfirmationEmail } from "@/modules/mail/notifications";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -307,6 +309,13 @@ async function createHold(
   await quota(tx, who.userId, input.day, settings.dailySessionLimit, now);
   if (input.trial && who.userId)
     assert(
+      !(await benefits(tx, who.userId, startsAt)),
+      "TRIAL_MEMBER",
+      "The introductory trial is for new players. Members already get their plan rate, so book a normal session.",
+      422,
+    );
+  if (input.trial && who.userId)
+    assert(
       !(await tx.reservation.count({
         where: {
           userId: who.userId,
@@ -449,6 +458,19 @@ export function actBooking(
           where: { reservationId: id, status: "OFFERED" },
           data: { status: "ACCEPTED" },
         });
+        // Confirmation email, queued in this transaction so it exists only if the booking commits.
+        const guest = booking.userId
+          ? await tx.user.findUnique({ where: { id: booking.userId }, select: { name: true, email: true } })
+          : booking.guestEmail
+            ? { name: booking.guestName || "there", email: booking.guestEmail }
+            : null;
+        if (guest) {
+          const [court, invoice] = await Promise.all([
+            tx.court.findUniqueOrThrow({ where: { id: booking.courtId }, select: { name: true } }),
+            tx.invoice.findUnique({ where: { id: booking.invoiceId! }, select: { number: true } }),
+          ]);
+          await enqueueMail(tx, { ...bookingConfirmationEmail({ name: guest.name, court: court.name, startsAt: booking.startsAt, totalPaise: booking.pricePaise, invoiceNumber: invoice?.number }), to: guest.email, dedupeKey: `booking-confirmation:${id}` });
+        }
       } else if (input.action === "cancel") {
         if (["CANCELLED", "EXPIRED"].includes(booking.status)) return booking;
         assert(

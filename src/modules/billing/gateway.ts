@@ -75,6 +75,15 @@ async function provider(path: string, body?: unknown) {
     ...(body ? { body: JSON.stringify(body) } : {}),
     signal: AbortSignal.timeout(15000),
   });
+  if (response.status === 401 || response.status === 403) {
+    // The keys in .env are wrong. Customers get a calm message; the owner's Payments check says exactly what to fix.
+    console.error(`Razorpay rejected the API keys (HTTP ${response.status}). Check RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.`);
+    throw new AppError(503, "PAYMENT_PROVIDER_AUTH", "Online payment is temporarily unavailable. Please try again later or contact the club.");
+  }
+  if (!response.ok) {
+    const detail = await response.json().then((b: { error?: { description?: string } }) => b.error?.description).catch(() => undefined);
+    console.error(`Razorpay request failed (HTTP ${response.status})${detail ? `: ${detail}` : ""}`);
+  }
   assert(
     response.ok,
     "GATEWAY_ERROR",
@@ -246,14 +255,7 @@ export async function createIntent(
         assert(
           input.input.action !== "purchase" || !terms.length,
           "MEMBERSHIP_EXISTS",
-          "Choose renewal or plan change.",
-        );
-        assert(
-          input.input.action !== "renew" ||
-            !terms[0] ||
-            terms[0].planId === plan.id,
-          "PLAN_CHANGE_REQUIRED",
-          "Choose change plan.",
+          "You already have a membership. Add your next one from the Memberships page.",
         );
         assert(
           input.input.action !== "change" ||
@@ -262,7 +264,7 @@ export async function createIntent(
           "An active different plan is required.",
         );
         const startsAt =
-          input.input.action === "renew" && terms[0]
+          input.input.action !== "change" && terms[0]
             ? terms[0].endsAt
             : new Date();
         assert(

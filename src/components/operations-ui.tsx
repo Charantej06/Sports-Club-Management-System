@@ -10,6 +10,7 @@ import { promptText } from "./prompt-dialog";
 import {
   GatewayCheckout,
   GatewayHistory,
+  TestModeHint,
   usePaymentModes,
 } from "./gateway-checkout";
 export type Json<T> = T extends Date
@@ -123,11 +124,14 @@ export function CheckoutHold({
   hold,
   eventId,
   onDone,
+  autoPay = false,
 }: {
   area: "booking" | "social" | "order";
   hold: Hold;
   eventId?: string;
   onDone: () => void;
+  /** Open the payment window straight away (the customer just chose this slot or order). */
+  autoPay?: boolean;
 }) {
   const action = useAction();
   const modes = usePaymentModes();
@@ -235,6 +239,7 @@ export function CheckoutHold({
                   ? "Payment is verified via secure Razorpay checkout before confirmation."
                   : "Online payments are not configured. Contact reception."}
             </p>
+            <TestModeHint />
             <div className="pt-1">
               <ReceiptLink id={hold.invoiceId} />
             </div>
@@ -248,6 +253,8 @@ export function CheckoutHold({
                   targetId: hold.id,
                 }}
                 onDone={onDone}
+                autoOpen={autoPay}
+                description={area === "order" ? "Champions Shop order" : area === "social" ? "Friday social play" : `${hold.court?.name ?? "Court"} session`}
               />
             ) : (
               <Button

@@ -33,6 +33,8 @@ export const GET = route(async (request) => {
       data: {
         local: process.env.PAYMENT_MODE === "local",
         gateway: gatewayConfigured(),
+        // Razorpay test keys move no real money; the UI tells testers which card to use.
+        testMode: gatewayConfigured() && (process.env.RAZORPAY_KEY_ID || "").startsWith("rzp_test_"),
       },
     });
   const actor = await requireUser(request),

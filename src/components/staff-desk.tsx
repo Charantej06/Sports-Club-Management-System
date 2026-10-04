@@ -121,7 +121,7 @@ export function StaffDesk({
             { id: "plans", name: "Membership plans", icon: BadgePercent },
             { id: "settings", name: "Business settings", icon: Settings },
             { id: "users", name: "Staff access", icon: ShieldCheck },
-            { id: "delivery", name: "Reminders & email", icon: Mail },
+            { id: "delivery", name: "Payments & email", icon: Mail },
             { id: "inbox", name: "Local test inbox", icon: Inbox },
           ]
         : [],

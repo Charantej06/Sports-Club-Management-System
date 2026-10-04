@@ -4,7 +4,9 @@ import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { issueMembershipInvoice } from "@/modules/billing/service";
 import { ageAt } from "./rules";
-import { TERM_MONTHS, addMonths, termDays, termPrice, type TermMonths } from "./terms";
+import { TERM_LABELS, TERM_MONTHS, addMonths, termDays, termPrice, type TermMonths } from "./terms";
+import { enqueueMail } from "@/modules/mail/outbox";
+import { membershipReceiptEmail } from "@/modules/mail/notifications";
 import { roles, type Actor } from "@/modules/operations/core";
 import type { PaymentMethod } from "@/modules/billing/service";
 import { scheduleReminders } from "@/modules/mail/reminders";
@@ -113,22 +115,16 @@ export async function purchaseMembership(
       );
     const current = terms.find((t) => t.startsAt <= now);
     let startsAt = now;
+    // "purchase" means "I have no membership yet". A stale page or a second tab must not buy a duplicate;
+    // adding another membership is the explicit "renew" action below.
     if (input.action === "purchase" && terms.length)
       throw new AppError(
         409,
         "MEMBERSHIP_EXISTS",
-        "You already have a membership. Choose renewal or plan change.",
+        "You already have a membership. Add your next one from the Memberships page; it will start when this one ends.",
       );
-    if (input.action === "renew") {
-      const latest = terms[0];
-      if (latest && latest.planId !== plan.id)
-        throw new AppError(
-          409,
-          "PLAN_CHANGE_REQUIRED",
-          "Choose change plan to switch your membership.",
-        );
-      if (latest) startsAt = latest.endsAt;
-    }
+    // A second membership never overlaps the first: unless the member explicitly switches now, it
+    // starts the moment their last paid term ends, whichever plan it is.
     if (input.action === "change") {
       if (!current)
         throw new AppError(
@@ -142,7 +138,7 @@ export async function purchaseMembership(
           "SAME_PLAN",
           "Choose renewal to extend your current plan.",
         );
-    }
+    } else if (terms[0]) startsAt = terms[0].endsAt;
     if (
       plan.juniorOnly &&
       (!user.dateOfBirth || ageAt(user.dateOfBirth, startsAt) >= 18)
@@ -191,6 +187,30 @@ export async function purchaseMembership(
       actor: staff?.actor,
       method: staff?.method,
     });
+    // The receipt is queued in this transaction: it is sent only if the purchase commits.
+    await enqueueMail(tx, {
+      ...membershipReceiptEmail({
+        name: user.name,
+        plan: plan.name,
+        term: TERM_LABELS[months],
+        startsAt,
+        endsAt,
+        totalPaise: price.totalPaise,
+        invoiceNumber: invoice.number,
+        queued: startsAt > now,
+      }),
+      to: user.email,
+      dedupeKey: `membership-receipt:${membership.id}`,
+    });
+    // A visitor who enquired and then joined is welcomed as a member: close their open lead.
+    const openLeads = await tx.lead.findMany({
+      where: { email: user.email.toLowerCase(), status: { in: ["NEW", "CONTACTED", "QUOTED"] } },
+      select: { id: true },
+    });
+    for (const lead of openLeads) {
+      await tx.lead.update({ where: { id: lead.id }, data: { status: "CONVERTED", memberId: userId, followUpAt: null } });
+      await tx.leadActivity.create({ data: { leadId: lead.id, actorId: staff?.actor.id || userId, note: `Joined: ${plan.name}, ${TERM_LABELS[months]}` } });
+    }
     const card = await tx.memberCard.findUnique({ where: { userId } });
     if (!card)
       await tx.memberCard.create({

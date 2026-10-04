@@ -61,6 +61,7 @@ export function Cart() {
       totalPaise: number;
       holdUntil: string;
       invoiceId: string;
+      autoPay?: boolean;
     } | null>(null);
   const action = useAction();
   const router = useRouter();
@@ -83,7 +84,7 @@ export function Cart() {
   };
   /** Local/complimentary orders complete in one step; online payment opens straight from the held order. */
   async function placeOrder(held: NonNullable<typeof hold>) {
-    if (modes.data?.gateway && held.totalPaise > 0) return setHold(held);
+    if (modes.data?.gateway && held.totalPaise > 0) return setHold({ ...held, autoPay: true });
     const patch = (input: Record<string, unknown>) =>
       api(`/api/operations/order/${held.id}`, {
         method: "PATCH",
@@ -122,6 +123,7 @@ export function Cart() {
       {hold && (
         <CheckoutHold
           area="order"
+          autoPay={hold.autoPay}
           hold={hold}
           onDone={() => {
             setHold(null);
