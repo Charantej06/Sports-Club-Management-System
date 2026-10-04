@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { clubDay, slot, memberLock, type Tx } from "@/modules/operations/core";
+import { membershipReminderEmail } from "@/modules/mail/templates";
+
 export async function scheduleReminders(
   tx: Tx,
   userId: string,
@@ -49,7 +51,7 @@ export async function scheduleReminders(
           data: { runAt, status: "PENDING" },
         });
         const plan = latest.planSnapshot as { name: string };
-        const body = `Hello ${user.name},\n\nYour ${plan.name} membership expires on ${clubDay(latest.endsAt)} (Asia/Kolkata), ${days === 0 ? "today" : `in ${days} day${days === 1 ? "" : "s"}`}.\nRenew your membership: ${process.env.BETTER_AUTH_URL || "http://localhost:3000"}/memberships\n\nChampions Club`;
+        const tpl = membershipReminderEmail(user.name, plan.name, clubDay(latest.endsAt), days);
         await tx.mailMessage.upsert({
           where: { jobId: task.id },
           create: {
@@ -57,13 +59,15 @@ export async function scheduleReminders(
             jobId: task.id,
             membershipId: latest.id,
             to: user.email,
-            subject: `${plan.name} membership expiry · ${days} days`,
-            body,
+            subject: tpl.subject,
+            body: tpl.text,
+            html: tpl.html,
             mode: process.env.EMAIL_MODE === "smtp" ? "smtp" : "local",
           },
-          update: { status: "QUEUED", body },
+          update: { status: "QUEUED", body: tpl.text, html: tpl.html },
         });
       }
+
     }
   }
   const obsolete = messages.filter(

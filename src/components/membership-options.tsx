@@ -5,7 +5,8 @@ import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, X } from "lucide-react";
-import { PlanCard, type PlanView } from "./plan-card";
+import { PlanCard, TermPicker, type PlanView } from "./plan-card";
+import { TERM_LABELS, addMonths, termPrice, type TermMonths } from "@/modules/membership/terms";
 import { Button } from "./ui/button";
 import { api } from "@/lib/api-client";
 import { money, date } from "@/lib/utils";
@@ -28,7 +29,11 @@ export function MembershipOptions({
     queryFn: () => api<MeData>("/api/me"),
     enabled: signedIn,
   });
-  const [plan, setPlan] = useState<PlanView | null>(null);
+  // Keep only the plan id so a refresh after a price change swaps in the new price and version.
+  const [planId, setPlanId] = useState<string | null>(null);
+  const plan = plans.find((p) => p.id === planId) ?? null;
+  const [priceUpdated, setPriceUpdated] = useState(false);
+  const [months, setMonths] = useState<TermMonths>(3);
   const [accepted, setAccepted] = useState(false);
   const [key, setKey] = useState("");
   const current = me.data && activeTerm(me.data.memberships);
@@ -44,6 +49,8 @@ export function MembershipOptions({
       : me.data?.memberships.length
         ? "renew"
         : "purchase";
+  const price = plan ? termPrice(plan, months) : null;
+  const startsAt = action === "renew" && latest ? new Date(latest.endsAt) : new Date();
   const mutation = useMutation({
     mutationFn: () =>
       api<{ invoiceId: string }>("/api/me/membership", {
@@ -51,24 +58,38 @@ export function MembershipOptions({
         headers: { "Idempotency-Key": key },
         body: JSON.stringify({
           planId: plan?.id,
+          months,
           action,
           acceptPolicy: true,
           planVersion: plan?.planVersion,
         }),
       }),
+    onError: (error) => {
+      // The owner changed the plan while this page was open: fetch the new price rather than failing the customer.
+      if (/plan has changed|PLAN_CHANGED/i.test(error.message)) {
+        setPriceUpdated(true);
+        setAccepted(false);
+        setKey(crypto.randomUUID());
+        router.refresh();
+      }
+    },
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ["me"] });
       await client.invalidateQueries({ queryKey: ["card"] });
-      setPlan(null);
+      setPlanId(null);
       router.push("/account?membership=success");
       router.refresh();
     },
   });
   return (
     <>
+      <div className="mb-8 flex flex-col items-start gap-3">
+        <p className="text-sm text-neutral-300" id="term-label">How long would you like to join for?</p>
+        <TermPicker plans={plans} value={months} onChange={setMonths} />
+      </div>
       <div className="grid gap-5 lg:grid-cols-3">
         {plans.map((p) => (
-          <PlanCard key={p.id} plan={p}>
+          <PlanCard key={p.id} plan={p} months={months}>
             {!signedIn ? (
               <Button asChild variant={p.id === "gold" ? "default" : "outline"}>
                 <Link href="/login">
@@ -84,7 +105,8 @@ export function MembershipOptions({
                   mutation.reset();
                   setAccepted(false);
                   setKey(crypto.randomUUID());
-                  setPlan(p);
+                  setPlanId(p.id);
+                  setPriceUpdated(false);
                 }}
               >
                 {current?.planId === p.id
@@ -107,7 +129,7 @@ export function MembershipOptions({
       <Dialog.Root
         open={!!plan}
         onOpenChange={(open) => {
-          if (!open && !mutation.isPending) setPlan(null);
+          if (!open && !mutation.isPending) setPlanId(null);
         }}
       >
         <Dialog.Portal>
@@ -130,26 +152,35 @@ export function MembershipOptions({
             >
               <X size={19} />
             </Dialog.Close>
+            <div className="mt-6">
+              <TermPicker plans={plan ? [plan] : plans} value={months} onChange={setMonths} />
+            </div>
             <div className="my-7 space-y-4 rounded border border-white/10 p-5 text-sm">
               <div className="flex justify-between">
                 <span>{plan?.name} membership</span>
-                <strong>{plan && money(plan.pricePaise)}</strong>
+                <strong>{price && money(price.grossPaise)}</strong>
               </div>
               <div className="flex justify-between text-neutral-400">
                 <span>Term</span>
-                <span>{plan?.durationDays} days</span>
+                <span>{TERM_LABELS[months]}</span>
               </div>
+              {price && price.discountPaise > 0 && (
+                <div className="flex justify-between text-orange-400">
+                  <span>{months === 12 ? "Annual" : "3-month"} discount</span>
+                  <span>−{money(price.discountPaise)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-neutral-400">
                 <span>Starts</span>
-                <span>
-                  {date(
-                    action === "renew" && latest ? latest.endsAt : new Date(),
-                  )}
-                </span>
+                <span>{date(startsAt)}</span>
+              </div>
+              <div className="flex justify-between text-neutral-400">
+                <span>Valid until</span>
+                <span>{date(addMonths(startsAt, months))}</span>
               </div>
               <div className="flex justify-between border-t border-white/10 pt-4">
                 <span>Total · INR</span>
-                <strong>{plan && money(plan.pricePaise)}</strong>
+                <strong>{price && money(price.totalPaise)}</strong>
               </div>
             </div>
             <p className="notice">
@@ -180,10 +211,16 @@ export function MembershipOptions({
                   : "I agree to the membership policy. Renewals extend my term; paid memberships are non-refundable except for a club cancellation."}
               </span>
             </label>
-            {mutation.error && (
-              <p role="alert" className="field-error mt-4">
-                {mutation.error.message}
+            {priceUpdated ? (
+              <p role="status" className="notice mt-4">
+                This plan&apos;s price was just updated. We&apos;ve refreshed it: please review the new total above and confirm again.
               </p>
+            ) : (
+              mutation.error && (
+                <p role="alert" className="field-error mt-4">
+                  {mutation.error.message}
+                </p>
+              )
             )}
             {!localMode && modes.data?.gateway ? (
               <div className="mt-6">
@@ -193,13 +230,14 @@ export function MembershipOptions({
                       kind: "membership",
                       input: {
                         planId: plan?.id,
+                        months,
                         action,
                         acceptPolicy: true,
                         planVersion: plan?.planVersion,
                       },
                     }}
                     onDone={() => {
-                      setPlan(null);
+                      setPlanId(null);
                       router.push("/account?membership=success");
                       router.refresh();
                     }}
@@ -213,7 +251,7 @@ export function MembershipOptions({
                 disabled={!accepted || mutation.isPending}
                 onClick={() => mutation.mutate()}
               >
-                {mutation.isPending ? "Confirming…" : "Confirm local payment"}
+                {mutation.isPending ? "Confirming…" : `Pay ${price ? money(price.totalPaise) : ""}`}
                 <ArrowUpRight size={16} />
               </Button>
             )}

@@ -158,9 +158,16 @@ export async function cashLock(tx: Tx, actorId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${"cash:" + actorId}, 12))`;
   return tx.cashShift.findFirst({ where: { actorId, closedAt: null } });
 }
-export function slot(day: string, hour: number) {
-  return new Date(`${day}T${String(hour).padStart(2, "0")}:00:00+05:30`);
+export function slot(day: string, hour: number, minute = 0) {
+  return new Date(`${day}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00+05:30`);
 }
+/** Hour and minute of an instant in club time. */
+export function clubTime(at: Date) {
+  const parts = new Intl.DateTimeFormat("en-GB", { hour: "numeric", minute: "numeric", hourCycle: "h23", timeZone: "Asia/Kolkata" }).formatToParts(at);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return { hour: get("hour"), minute: get("minute") };
+}
+export const minuteSchema = z.union([z.literal(0), z.literal(30)]).default(0);
 export function weekRange(at: Date) {
   const day = clubDay(at);
   const d = new Date(day);

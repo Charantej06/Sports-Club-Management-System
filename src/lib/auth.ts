@@ -4,6 +4,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { APIError } from "better-auth/api";
 import { db } from "./db";
 import { queueMail } from "@/modules/mail/service";
+import { verificationEmail, resetPasswordEmail } from "@/modules/mail/templates";
 
 export const auth = betterAuth({
   appName: "Champions Club",
@@ -14,11 +15,17 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true, minPasswordLength: 10, maxPasswordLength: 128,
     requireEmailVerification: true, autoSignIn: false, revokeSessionsOnPasswordReset: true,
-    sendResetPassword: async ({ user, url }) => { await queueMail(user.email, "Reset your Champions Club password", `Hello ${user.name},\n\nReset your password: ${url}\n\nThis link expires in one hour. If you did not request it, ignore this email.`); },
+    sendResetPassword: async ({ user, url }) => {
+      const tpl = resetPasswordEmail(user.name, url);
+      await queueMail(user.email, tpl.subject, tpl.text, tpl.html);
+    },
   },
   emailVerification: {
     sendOnSignUp: true, sendOnSignIn: true, autoSignInAfterVerification: true, expiresIn: 3600,
-    sendVerificationEmail: async ({ user, url }) => { await queueMail(user.email, "Welcome to Champions Club — verify your email", `Hello ${user.name},\n\nVerify your email: ${url}\n\nThis link expires in one hour.`); },
+    sendVerificationEmail: async ({ user, url }) => {
+      const tpl = verificationEmail(user.name, url);
+      await queueMail(user.email, tpl.subject, tpl.text, tpl.html);
+    },
   },
   session: { expiresIn: 60 * 60 * 24 * 7, updateAge: 60 * 60 * 24, cookieCache: { enabled: false } },
   rateLimit: { enabled: true, storage: "database", window: 60, max: 80, customRules: { "/sign-in/email": { window: 60, max: 10 }, "/sign-up/email": { window: 60, max: 5 }, "/request-password-reset": { window: 60, max: 5 } } },

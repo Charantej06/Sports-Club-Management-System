@@ -1,6 +1,7 @@
 "use client";
+import { EmailHealth } from "./email-health";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { money, date, dateTime } from "@/lib/utils";
@@ -100,6 +101,7 @@ export function OwnerReports() {
   const [detail, setDetail] = useState("sales"),
     [department, setDepartment] = useState("ALL"),
     [paymentMethod, setPaymentMethod] = useState("ALL");
+  const recordsRef = useRef<HTMLDivElement>(null);
   const search = new URLSearchParams(range).toString();
   const query = useQuery({
     queryKey: ["reports", range],
@@ -114,10 +116,23 @@ export function OwnerReports() {
   });
   const r = query.data,
     match = (d: string) => department === "ALL" || d === department;
+  const scrollToRecords = () => {
+    requestAnimationFrame(() => {
+      recordsRef.current?.scrollIntoView({
+        behavior:
+          typeof window !== "undefined" &&
+          window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+            ? "auto"
+            : "smooth",
+        block: "start",
+      });
+    });
+  };
   const drill = (next: string) => {
     setDetail(next);
     setDepartment("ALL");
     setPaymentMethod("ALL");
+    scrollToRecords();
   };
   return (
     <div className="space-y-5">
@@ -130,12 +145,22 @@ export function OwnerReports() {
               are separate ledger events.
             </p>
           </div>
-          <a
-            className="text-sm text-orange-800 underline"
-            href={`/api/staff/reports?${search}&format=csv`}
-          >
-            Export ledger CSV
-          </a>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <a
+              className="text-orange-800 underline"
+              href={`/staff/summary?${search}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Printable summary
+            </a>
+            <a
+              className="text-orange-800 underline"
+              href={`/api/staff/reports?${search}&format=csv`}
+            >
+              Export ledger CSV
+            </a>
+          </div>
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
           {["today", "week", "month"].map((preset) => (
@@ -217,6 +242,31 @@ export function OwnerReports() {
               onClick={() => drill("outstanding")}
             />
           </div>
+          <section className="surface" aria-labelledby="owed-title">
+            <h3 id="owed-title" className="font-semibold">
+              What the club owes · {r.obligations.payrollPeriod}
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Staff pay for the month this range ends in ({r.obligations.payslipsFinalized} of {r.obligations.employeeCount} payslips finalized; the rest are estimated from configured salaries), plus refunds still to be repaid.
+            </p>
+            <dl className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                ["Staff net pay", r.obligations.payrollNetPaise],
+                [`${r.obligations.withholdingLabel} to remit`, r.obligations.withholdingPaise],
+                ["Refunds awaiting repayment", r.totals.pendingRefundsPaise],
+                ["Total to pay out", r.obligations.payrollNetPaise + r.obligations.withholdingPaise + r.totals.pendingRefundsPaise],
+              ].map(([label, value]) => (
+                <div key={label as string}>
+                  <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">{label}</dt>
+                  <dd className="mt-1 text-xl font-semibold text-slate-900">{money(value as number)}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+              Collected this period {money(r.totals.collectionsPaise)} − refunds {money(r.totals.refundsPaise)} − staff gross pay {money(r.obligations.payrollGrossPaise)} ={" "}
+              <strong>{money(r.totals.collectionsPaise - r.totals.refundsPaise - r.obligations.payrollGrossPaise)}</strong> estimated net position. Still owed to the club: {money(r.totals.outstandingPaise)}.
+            </p>
+          </section>
           <div className="surface overflow-x-auto">
             <h3 className="font-semibold">Department breakdown</h3>
             <table className="mt-4 w-full text-left text-sm">
@@ -246,6 +296,7 @@ export function OwnerReports() {
                           setDepartment(d.department);
                           setPaymentMethod("ALL");
                           setDetail("sales");
+                          scrollToRecords();
                         }}
                       >
                         {d.department}
@@ -273,6 +324,7 @@ export function OwnerReports() {
                                 "outstanding",
                               ][i],
                             );
+                            scrollToRecords();
                           }}
                         >
                           {money(v)}
@@ -295,6 +347,7 @@ export function OwnerReports() {
                     setDetail("payments");
                     setDepartment("ALL");
                     setPaymentMethod(m.method);
+                    scrollToRecords();
                   }}
                 >
                   <strong>{m.method}</strong> {money(m.amountPaise)}
@@ -308,7 +361,11 @@ export function OwnerReports() {
               records. Payment records below show their source and allocation.
             </p>
           </div>
-          <div className="surface">
+          <div
+            ref={recordsRef}
+            id="supporting-records"
+            className="surface scroll-mt-6"
+          >
             <h3 className="font-semibold">Records supporting totals</h3>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="text-xs">
@@ -502,6 +559,29 @@ function Record({
 function OperationalAlerts({ data }: { data: Operations }) {
   return (
     <div className="grid gap-4 xl:grid-cols-2">
+      <div className="surface xl:col-span-2">
+        <h3 className="font-semibold">Clubhouse: bar and kitchen</h3>
+        <p className="mt-2 text-xs text-slate-600">
+          Items sold in the selected range (before member discounts are settled), split by menu category. Cancelled items are excluded.
+        </p>
+        <dl className="mt-4 grid gap-4 sm:grid-cols-3">
+          {[
+            ["Bar", data.clubhouse.barPaise],
+            ["Kitchen & cafeteria", data.clubhouse.kitchenPaise],
+            ["Clubhouse total", data.clubhouse.barPaise + data.clubhouse.kitchenPaise],
+          ].map(([label, value]) => (
+            <div key={label as string}>
+              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">{label}</dt>
+              <dd className="mt-1 text-xl font-semibold text-slate-900">{money(value as number)}</dd>
+            </div>
+          ))}
+        </dl>
+        {data.clubhouse.categories.length > 0 && (
+          <p className="mt-4 text-xs text-slate-600">
+            {data.clubhouse.categories.map((c) => `${c.category}: ${c.quantity} sold · ${money(c.totalPaise)}`).join("  ·  ")}
+          </p>
+        )}
+      </div>
       <div className="surface">
         <h3 className="font-semibold">Court utilization</h3>
         <p className="mt-2 text-xs text-slate-600">
@@ -1145,6 +1225,7 @@ export function DeliveryWorkspace() {
     action = useAdmin();
   return (
     <div className="space-y-4">
+      <EmailHealth />
       <div className="surface space-y-4">
         <h2 className="text-xl font-semibold">
           Membership reminders & delivery

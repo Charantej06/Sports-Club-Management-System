@@ -1,10 +1,15 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useItemDraft } from "./safe-drafts";
+import { promptText } from "./prompt-dialog";
+import { MemberHistory } from "./member-history";
+import { FreeSlots } from "./free-slots";
+import { MemberRegistration } from "./member-registration";
 import { useQuery } from "@tanstack/react-query";
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { api } from "@/lib/api-client";
 import { money } from "@/lib/utils";
+import { TERM_LABELS, TERM_MONTHS, termLabel } from "@/modules/membership/terms";
 import type {
   Court,
   Reservation,
@@ -80,8 +85,16 @@ function useWorkspace<T>(area: string, query = "") {
     refetchInterval: 5000,
   });
 }
-function reason() {
-  return window.prompt("Reason (at least 5 characters)") || undefined;
+async function reason(title = "Add a reason", confirmLabel = "Confirm") {
+  return (
+    (await promptText({
+      title,
+      label: "Reason",
+      placeholder: "A short explanation for the record",
+      minLength: 5,
+      confirmLabel,
+    })) || undefined
+  );
 }
 function Field({
   label,
@@ -150,11 +163,13 @@ export function MemberFinder({
   useEffect(() => () => controls.current?.stop(), []);
   return (
     <div className="space-y-4">
-      <form
+      <div
         className="flex flex-wrap items-end gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void lookup(query);
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            void lookup(query);
+          }
         }}
       >
         <div className="grow">
@@ -164,7 +179,9 @@ export function MemberFinder({
             onChange={setQuery}
           />
         </div>
-        <Button>Find member</Button>
+        <Button type="button" onClick={() => void lookup(query)}>
+          Find member
+        </Button>
         <Button
           type="button"
           variant="outline"
@@ -200,7 +217,7 @@ export function MemberFinder({
         >
           {scanning ? "Stop camera" : "Scan QR camera"}
         </Button>
-      </form>
+      </div>
       {scanning && (
         <video
           className="max-h-64 w-full rounded bg-black"
@@ -228,6 +245,7 @@ export function MemberFinder({
           <p className="mt-2 text-xs text-slate-500">
             Identity identified. Payment needs separate authorization.
           </p>
+          <MemberHistory id={member.id} />
         </div>
       )}
     </div>
@@ -278,7 +296,22 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
     [member, setMember] = useState<Member | null>(null),
     [guest, setGuest] = useState(""),
     [method, setMethod] = useState("CASH"),
-    [selected, setSelected] = useState<string | null>(null);
+    [selected, setSelected] = useState<string | null>(null),
+    [courtChoice, setCourtChoice] = useState(""),
+    [timeChoice, setTimeChoice] = useState("");
+  const club = useQuery({
+    queryKey: ["club-hours"],
+    queryFn: () => api<{ settings: { openHour: number; closeHour: number; slotMinutes: number } }>("/api/public"),
+    staleTime: 60000,
+  });
+  // Bookable start times follow the owner's opening hours and slot spacing (a one-hour session must finish by closing).
+  const startTimes = (() => {
+    const { openHour = 6, closeHour = 23, slotMinutes = 30 } = club.data?.settings ?? {};
+    const out: string[] = [];
+    for (let m = openHour * 60; m + 60 <= closeHour * 60; m += slotMinutes)
+      out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+    return out;
+  })();
   const query = useWorkspace<{
     courts: Json<Court>[];
     bookings: Booking[];
@@ -339,8 +372,24 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
           {query.error.message}
         </p>
       )}
-      <div className="surface">
+      <FreeSlots
+        day={day}
+        onPick={(court, time) => {
+          setCourtChoice(court);
+          setTimeChoice(time);
+          document.getElementById("walk-in-booking")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }}
+      />
+      <div className="surface" id="walk-in-booking">
         <h3 className="font-semibold">One-hour walk-in / phone booking</h3>
+        <div className="mt-5">
+          <Subject
+            member={member}
+            setMember={setMember}
+            guest={guest}
+            setGuest={setGuest}
+          />
+        </div>
         <form
           className="mt-5 space-y-4"
           onSubmit={(e) => {
@@ -350,9 +399,10 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
               {
                 area: "booking",
                 input: {
-                  courtId: String(f.get("courtId")),
+                  courtId: courtChoice || String(f.get("courtId")),
                   day,
-                  hour: Number(f.get("hour")),
+                  hour: Number((timeChoice || String(f.get("time"))).split(":")[0]),
+                  minute: Number((timeChoice || String(f.get("time"))).split(":")[1]),
                   ...(member ? { userId: member.id } : { guestName: guest }),
                 },
               },
@@ -360,30 +410,27 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
             );
           }}
         >
-          <Subject
-            member={member}
-            setMember={setMember}
-            guest={guest}
-            setGuest={setGuest}
-          />
           <div className="grid gap-4 sm:grid-cols-2">
             <label>
               Court
-              <select name="courtId">
-                {d?.courts.map((c) => (
+              <select name="courtId" value={courtChoice || undefined} onChange={(e) => setCourtChoice(e.target.value)}>
+                {d?.courts.filter((c) => c.status === "ACTIVE").map((c) => (
                   <option value={c.id} key={c.id}>
                     {c.name} · {money(c.hourlyPaise)}/hour
                   </option>
                 ))}
               </select>
             </label>
-            <Field
-              label="Start hour (club time)"
-              name="hour"
-              type="number"
-              min={0}
-              max={23}
-            />
+            <label>
+              Start time (club time)
+              <select name="time" value={timeChoice || undefined} onChange={(e) => setTimeChoice(e.target.value)}>
+                {startTimes.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <Button disabled={action.isPending}>
             Hold session & review price
@@ -469,8 +516,8 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
                       size="sm"
                       variant="outline"
                       disabled={action.isPending}
-                      onClick={() => {
-                        const r = reason();
+                      onClick={async () => {
+                        const r = await reason("Cancel this booking?", "Cancel booking");
                         if (r)
                           action.mutate({
                             area: "booking",
@@ -525,8 +572,8 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  const r = reason();
+                onClick={async () => {
+                  const r = await reason("Cancel this social event?", "Cancel event and credit participants");
                   if (r)
                     action.mutate({
                       area: "social",
@@ -541,6 +588,7 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
           </article>
         ))}
       </div>
+      <MemberRegistration onRegistered={setMember} />
       <div className="surface">
         <h3 className="font-semibold">Process membership</h3>
         <p className="mt-3 text-xs text-slate-500">
@@ -559,6 +607,7 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
                 input: {
                   userId: member.id,
                   planId: p.id,
+                  months: Number(f.get("months")),
                   planVersion: new Date(p.updatedAt).toISOString(),
                   action: String(f.get("action")),
                   acceptPolicy: true,
@@ -575,7 +624,18 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
             <select name="planId">
               {plans.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} · {money(p.pricePaise)} · {p.durationDays} days
+                  {p.name} · {money(p.pricePaise)} / month
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Term
+            <select name="months" defaultValue="1">
+              {TERM_MONTHS.map((m) => (
+                <option key={m} value={m}>
+                  {TERM_LABELS[m]}
+                  {m > 1 ? " · discount applied" : ""}
                 </option>
               ))}
             </select>
@@ -619,7 +679,7 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
           <label>
             Court
             <select name="courtId">
-              {d?.courts.map((c) => (
+              {d?.courts.filter((c) => c.status === "ACTIVE").map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
@@ -671,7 +731,7 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
           <label>
             Court
             <select name="courtId">
-              {d?.courts.map((c) => (
+              {d?.courts.filter((c) => c.status === "ACTIVE").map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
@@ -694,8 +754,8 @@ export function Reception({ plans }: { plans: MembershipPlan[] }) {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => {
-                const r = reason();
+              onClick={async () => {
+                const r = await reason("Reopen this court?", "Reopen court");
                 if (r)
                   action.mutate({
                     area: "closure",
@@ -719,6 +779,7 @@ export function CRM() {
     notifications: Json<StaffNotification>[];
   }>("crm");
   const action = useAction();
+  const [quoteMonths, setQuoteMonths] = useState<number>(1);
   return (
     <div className="space-y-6">
       <div className="surface">
@@ -860,6 +921,20 @@ export function CRM() {
             </Button>
           </form>
           <div className="flex flex-wrap gap-3">
+            <label className="flex items-center gap-2 text-xs">
+              Quote term
+              <select
+                className="w-auto"
+                value={quoteMonths}
+                onChange={(e) => setQuoteMonths(Number(e.target.value))}
+              >
+                {TERM_MONTHS.map((m) => (
+                  <option key={m} value={m}>
+                    {TERM_LABELS[m]}
+                  </option>
+                ))}
+              </select>
+            </label>
             {["gold", "silver", "junior"].map((planId) => (
               <Button
                 size="sm"
@@ -869,7 +944,7 @@ export function CRM() {
                   action.mutate({
                     area: "crm",
                     id: l.id,
-                    input: { action: "quote", planId },
+                    input: { action: "quote", planId, months: quoteMonths },
                   })
                 }
               >
@@ -909,7 +984,7 @@ export function CRM() {
                   {new Date(q.validUntil).toLocaleDateString("en-IN", {
                     timeZone: "Asia/Kolkata",
                   })}{" "}
-                  · {(q.snapshot as { durationDays: number }).durationDays} days
+                  · {termLabel((q.snapshot as { months?: number }).months, (q.snapshot as { durationDays: number }).durationDays)}
                   · court{" "}
                   {(q.snapshot as { courtDiscountBps: number })
                     .courtDiscountBps / 100}
@@ -1137,9 +1212,9 @@ export function Inventory() {
                 <Button
                   size="sm"
                   disabled={action.isPending}
-                  onClick={() => {
+                  onClick={async () => {
                     const tracking = o.delivery
-                      ? window.prompt("Tracking / courier reference")
+                      ? await promptText({ title: "Dispatch this order", description: "The customer can see this reference on their order.", label: "Tracking / courier reference", placeholder: "e.g. Delhivery 1234567890", minLength: 3, confirmLabel: "Mark dispatched" })
                       : undefined;
                     if (o.delivery && !tracking) return;
                     action.mutate({
@@ -1173,8 +1248,8 @@ export function Inventory() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    const r = reason();
+                  onClick={async () => {
+                    const r = await reason("Cancel this order?", "Cancel order");
                     if (r)
                       action.mutate({
                         area: "order",
@@ -1546,8 +1621,8 @@ function BillControls({
                     size="sm"
                     variant="outline"
                     disabled={action.isPending || b.status !== "OPEN"}
-                    onClick={() => {
-                      const r = reason();
+                    onClick={async () => {
+                      const r = await reason("Remove this kitchen item?", "Remove item");
                       if (r)
                         action.mutate({
                           area: "bill",
@@ -1881,8 +1956,8 @@ export function Financial() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => {
-                      const r = reason();
+                    onClick={async () => {
+                      const r = await reason("Record this refund?", "Record refund");
                       if (r)
                         action.mutate({
                           area: "refund",

@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Reception,
@@ -16,12 +16,28 @@ import {
   ScanLine,
   Users,
   Mail,
-  ClipboardList,
+  LayoutDashboard,
+  CalendarDays,
+  MessageSquare,
+  Trophy,
+  Package,
+  UtensilsCrossed,
+  ChefHat,
+  BarChart3,
+  Receipt,
+  Wallet,
+  FileText,
+  History,
+  BadgePercent,
+  ShieldCheck,
+  Inbox,
   ArrowUpRight,
+  type LucideIcon,
 } from "lucide-react";
 import type { ClubSettings, MembershipPlan } from "@/generated/prisma/client";
 import { api } from "@/lib/api-client";
 import { money, date } from "@/lib/utils";
+import { TERM_LABELS, TERM_MONTHS, termPrice } from "@/modules/membership/terms";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
@@ -33,6 +49,7 @@ import {
   AuditWorkspace,
 } from "./owner-workspaces";
 import { DraftScope } from "./safe-drafts";
+import { FacilitiesWorkspace } from "./facilities-workspace";
 type LeadView = {
   id: string;
   name: string;
@@ -55,130 +72,129 @@ export function StaffDesk({
   activeMembers: number;
   plans: MembershipPlan[];
 }) {
-  const [tab, setTab] = useState("today");
+  const [tab, setTabState] = useState("today");
   const owner = role === "OWNER";
   const lookupAllowed = ["OWNER", "RECEPTION", "CASHIER"].includes(role);
-  const tabs = [
-    ...(owner
-      ? [
-          { id: "reports", name: "Owner reports", icon: ClipboardList },
-          { id: "documents", name: "Business documents", icon: ClipboardList },
-          { id: "delivery", name: "Reminders & delivery", icon: Mail },
-        ]
-      : []),
+  const frontDesk = ["OWNER", "RECEPTION"].includes(role);
+  const groups: { label: string; items: { id: string; name: string; icon: LucideIcon }[] }[] = [
+    { label: "Overview", items: [{ id: "today", name: "Club desk", icon: LayoutDashboard }] },
     {
-      id: "audit",
-      name: owner ? "Audit history" : "My audit history",
-      icon: ClipboardList,
+      label: "Front desk",
+      items: [
+        ...(frontDesk ? [{ id: "reception", name: "Reception calendar", icon: CalendarDays }] : []),
+        ...(lookupAllowed ? [{ id: "lookup", name: "Member lookup", icon: ScanLine }] : []),
+        ...(frontDesk ? [{ id: "crm", name: "Enquiries & CRM", icon: MessageSquare }] : []),
+      ],
     },
-    ...(lookupAllowed
-      ? [{ id: "cash", name: "Cash reconciliation", icon: ClipboardList }]
-      : []),
     {
-      id: "people",
-      name: owner ? "People & payroll" : "My employment",
-      icon: Users,
+      label: "Courts, shop & clubhouse",
+      items: [
+        ...(owner ? [{ id: "facilities", name: "Courts & sports", icon: Trophy }] : []),
+        ...(["OWNER", "CASHIER"].includes(role)
+          ? [
+              { id: "inventory", name: "Shop & inventory", icon: Package },
+              { id: "pos", name: "Waiter / POS", icon: UtensilsCrossed },
+            ]
+          : []),
+        ...(["OWNER", "KITCHEN", "CASHIER"].includes(role) ? [{ id: "kitchen", name: "Kitchen queue", icon: ChefHat }] : []),
+      ],
     },
-    ...(["OWNER", "RECEPTION"].includes(role)
-      ? [
-          { id: "reception", name: "Reception calendar", icon: ClipboardList },
-          { id: "crm", name: "Enquiries & CRM", icon: Users },
-        ]
-      : []),
-    ...(["OWNER", "CASHIER"].includes(role)
-      ? [
-          { id: "inventory", name: "Shop & inventory", icon: ClipboardList },
-          { id: "pos", name: "Waiter / POS", icon: ClipboardList },
-        ]
-      : []),
-    ...(["OWNER", "KITCHEN"].includes(role)
-      ? [{ id: "kitchen", name: "Kitchen queue", icon: ClipboardList }]
-      : []),
-    ...(lookupAllowed
-      ? [{ id: "billing", name: "Billing & refunds", icon: ClipboardList }]
-      : []),
-    { id: "today", name: "Club desk", icon: ClipboardList },
-    ...(lookupAllowed
-      ? [{ id: "lookup", name: "Member lookup", icon: ScanLine }]
-      : []),
-    ...(owner
-      ? [
-          { id: "settings", name: "Business settings", icon: Settings },
-          { id: "plans", name: "Membership plans", icon: Users },
-          { id: "users", name: "Staff access", icon: Users },
-          { id: "inbox", name: "Local test inbox", icon: Mail },
-        ]
-      : []),
-  ];
+    {
+      label: "Finance",
+      items: [
+        ...(owner ? [{ id: "reports", name: "Owner reports", icon: BarChart3 }] : []),
+        ...(lookupAllowed ? [{ id: "billing", name: "Billing & refunds", icon: Receipt }, { id: "cash", name: "Cash reconciliation", icon: Wallet }] : []),
+        ...(owner ? [{ id: "documents", name: "Business documents", icon: FileText }] : []),
+      ],
+    },
+    {
+      label: "People",
+      items: [
+        { id: "people", name: owner ? "People & payroll" : "My employment", icon: Users },
+        { id: "audit", name: owner ? "Audit history" : "My audit history", icon: History },
+      ],
+    },
+    {
+      label: "Administration",
+      items: owner
+        ? [
+            { id: "plans", name: "Membership plans", icon: BadgePercent },
+            { id: "settings", name: "Business settings", icon: Settings },
+            { id: "users", name: "Staff access", icon: ShieldCheck },
+            { id: "delivery", name: "Reminders & email", icon: Mail },
+            { id: "inbox", name: "Local test inbox", icon: Inbox },
+          ]
+        : [],
+    },
+  ].filter((group) => group.items.length);
+  const tabs = groups.flatMap((group) => group.items);
+  const setTab = (id: string) => {
+    setTabState(id);
+    window.history.replaceState(null, "", `#${id}`);
+    window.scrollTo({ top: 0 });
+  };
+  // Restore the open workspace after a reload or when a link such as /staff#facilities is shared.
+  useEffect(() => {
+    const sync = () => {
+      const wanted = window.location.hash.slice(1);
+      if (wanted && tabs.some((item) => item.id === wanted)) setTabState(wanted);
+    };
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, [role]);
+  const current = tabs.find((item) => item.id === tab);
+  const roleLabel = role === "CASHIER" ? "Waiter / Cashier" : role[0] + role.slice(1).toLowerCase();
+  const today = new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Kolkata" }).format(new Date());
   return (
     <DraftScope userId={userId}>
       <div className="staff-theme min-h-[80vh]">
-        <div className="site-width py-10">
-          <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div className="site-width py-8 md:py-10">
+          <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
-                Champions operations
-              </p>
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-                Hello, {name.split(" ")[0]}.
-              </h1>
+              <p className="text-xs font-medium uppercase tracking-widest text-slate-500">Champions operations · {today}</p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Hello, {name.split(" ")[0]}.</h1>
             </div>
-            <span className="rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-xs text-orange-800">
-              {role === "CASHIER"
-                ? "Waiter / Cashier"
-                : role[0] + role.slice(1).toLowerCase()}{" "}
-              workspace
-            </span>
+            <span className="rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-xs font-medium text-orange-800">{roleLabel} workspace</span>
           </div>
-          <div className="grid gap-7 lg:grid-cols-[220px_1fr]">
-            <nav
-              className="flex content-start gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible"
-              aria-label="Staff navigation"
-            >
-              {tabs.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setTab(item.id)}
-                  aria-current={tab === item.id ? "page" : undefined}
-                  className={`flex shrink-0 items-center gap-3 whitespace-nowrap rounded-lg px-4 py-3 text-left text-sm lg:whitespace-normal ${tab === item.id ? "bg-[#26303d] text-white" : "text-slate-600 hover:bg-white"}`}
-                >
-                  <item.icon size={17} />
-                  {item.name}
-                </button>
+          <div className="grid gap-6 lg:grid-cols-[250px_1fr]">
+            <nav className="staff-nav lg:sticky lg:top-[104px] lg:max-h-[calc(100vh-128px)] lg:self-start lg:overflow-y-auto" aria-label="Staff navigation">
+              {groups.map((group) => (
+                <div key={group.label} className="staff-nav-group">
+                  <p className="staff-nav-label">{group.label}</p>
+                  <div className="staff-nav-items">
+                    {group.items.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setTab(item.id)}
+                        aria-current={tab === item.id ? "page" : undefined}
+                        className="staff-nav-item"
+                      >
+                        <item.icon size={17} aria-hidden="true" />
+                        <span>{item.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </nav>
-            <div className="min-w-0">
+            <section className="min-w-0 space-y-6" aria-label={current?.name}>
               {tab === "today" && (
                 <>
                   <OperationalHome role={role} onNavigate={setTab} />
-                  <div className="surface mt-6">
-                    <h2 className="text-lg font-semibold">
-                      Your operational workspace
-                    </h2>
-                    <p className="mt-3 text-sm text-slate-500">
-                      Use the live workspaces to manage arrivals, enquiries,
-                      collections, tables and preparation. Records refresh every
-                      five seconds.
-                    </p>
-                  </div>
-                  {owner ? (
-                    <OwnerReports />
-                  ) : role === "KITCHEN" ? (
-                    <Kitchen />
-                  ) : role === "CASHIER" ? (
-                    <POS />
-                  ) : (
-                    <Reception plans={plans} />
-                  )}
+                  {owner ? <OwnerReports /> : role === "KITCHEN" ? <Kitchen /> : role === "CASHIER" ? <POS /> : <Reception plans={plans} />}
                 </>
               )}
-              {tab === "reception" && <Reception plans={plans} />}{" "}
-              {tab === "crm" && <CRM />} {tab === "inventory" && <Inventory />}{" "}
-              {tab === "pos" && <POS />} {tab === "kitchen" && <Kitchen />}{" "}
+              {tab === "reception" && <Reception plans={plans} />}
+              {tab === "crm" && <CRM />}
+              {tab === "inventory" && <Inventory />}
+              {tab === "pos" && <POS />}
+              {tab === "kitchen" && <Kitchen />}
               {tab === "billing" && <Financial />}
               {tab === "lookup" && <LookupForm />}
               {tab === "settings" && <SettingsForm />}
-              {tab === "plans" && <PlansEditor plans={plans} />}{" "}
+              {tab === "plans" && <PlansEditor plans={plans} />}
               {tab === "users" && <StaffAccess />}
               {tab === "inbox" && <LocalInbox />}
               {tab === "reports" && <OwnerReports />}
@@ -187,7 +203,8 @@ export function StaffDesk({
               {tab === "documents" && <BusinessDocuments />}
               {tab === "delivery" && <DeliveryWorkspace />}
               {tab === "audit" && <AuditWorkspace />}
-            </div>
+              {tab === "facilities" && <FacilitiesWorkspace />}
+            </section>
           </div>
         </div>
       </div>
@@ -208,30 +225,42 @@ function OperationalHome({
     refetchInterval: 5000,
   });
   return (
-    <div className="mb-5">
-      <h2 className="mb-4 text-lg font-semibold">Today's actions</h2>
-      {query.isPending && <p role="status">Loading actions…</p>}
+    <section aria-labelledby="today-actions">
+      <h2 id="today-actions" className="mb-3 text-lg font-semibold tracking-tight">
+        Needs your attention today
+      </h2>
+      {query.isPending && (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Loading actions">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="surface h-28 animate-pulse !bg-slate-100" />
+          ))}
+        </div>
+      )}
       {query.error && (
         <p role="alert" className="field-error">
           {query.error.message}
         </p>
       )}
+      {query.data && !query.data.length && (
+        <div className="surface text-sm text-slate-500">Nothing is waiting. New activity appears here automatically.</div>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {query.data?.map((c) => (
           <button
             key={c.label}
+            type="button"
             onClick={() => onNavigate(c.tab)}
-            className="surface text-left hover:border-orange-300"
+            className="surface group text-left transition-colors hover:border-orange-300 hover:bg-orange-50/30"
           >
-            <span className="block text-xs text-slate-600">{c.label}</span>
-            <strong className="mt-3 block text-2xl">{c.count}</strong>
-            <span className="mt-3 block text-xs text-orange-800">
-              Open workspace →
+            <span className="block text-xs font-medium uppercase tracking-wider text-slate-500">{c.label}</span>
+            <strong className={`mt-2 block text-3xl font-semibold tracking-tight ${c.count > 0 ? "text-slate-900" : "text-slate-400"}`}>{c.count}</strong>
+            <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-orange-800 group-hover:underline">
+              Open workspace <ArrowUpRight size={13} aria-hidden="true" />
             </span>
           </button>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 function LookupForm() {
@@ -266,23 +295,26 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
       return client.invalidateQueries();
     },
   });
+  // [key, label, min, max, unit]: money fields are shown in rupees and rates in percent, but stored as paise / basis points.
   const fields = [
-    ["openHour", "Opening hour (0–22)", 0, 22],
-    ["closeHour", "Closing hour (1–24)", 1, 24],
-    ["bookingWindowDays", "Booking window · days", 1, 90],
-    ["dailySessionLimit", "Sessions per member per day", 1, 10],
-    ["holdMinutes", "Checkout hold · minutes", 1, 30],
-    ["cancellationHours", "Cancellation notice · hours", 0, 72],
-    ["waitOfferMinutes", "Waiting-list offer · minutes", 5, 240],
-    ["socialCapacity", "Social event capacity", 2, 50],
-    ["tabLimitPaise", "Member tab limit · paise", 0, 100000000],
-    ["trialDiscountBps", "Trial discount · basis points", 0, 10000],
-    ["socialPricePaise", "Social guest price · paise", 0, 1000000],
-    ["deliveryFeePaise", "Delivery fee · paise", 0, 1000000],
-    ["tabDueDays", "Member tab due · days", 1, 90],
-    ["reminderHour", "Reminder hour · Asia/Kolkata (0–23)", 0, 23],
-    ["payrollTaxBps", "Payroll withholding · basis points", 0, 10000],
+    ["openHour", "Opening hour (0–22)", 0, 22, "int"],
+    ["closeHour", "Closing hour (1–24)", 1, 24, "int"],
+    ["bookingWindowDays", "Booking window · days", 1, 90, "int"],
+    ["dailySessionLimit", "Sessions per member per day", 1, 10, "int"],
+    ["holdMinutes", "Checkout hold · minutes", 1, 30, "int"],
+    ["cancellationHours", "Cancellation notice · hours", 0, 72, "int"],
+    ["waitOfferMinutes", "Waiting-list offer · minutes", 5, 240, "int"],
+    ["socialCapacity", "Social event capacity", 2, 50, "int"],
+    ["tabLimitPaise", "Member tab limit · ₹", 0, 1000000, "money"],
+    ["trialDiscountBps", "Trial discount · %", 0, 100, "percent"],
+    ["socialPricePaise", "Social guest price · ₹", 0, 10000, "money"],
+    ["deliveryFeePaise", "Delivery fee · ₹", 0, 10000, "money"],
+    ["tabDueDays", "Member tab due · days", 1, 90, "int"],
+    ["reminderHour", "Reminder hour · Asia/Kolkata (0–23)", 0, 23, "int"],
+    ["payrollTaxBps", "Payroll withholding · %", 0, 100, "percent"],
   ] as const;
+  const shown = (key: (typeof fields)[number][0], unit: string) =>
+    unit === "int" ? settings[key] : settings[key] / 100;
   return (
     <form
       className="surface space-y-7"
@@ -290,7 +322,8 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
         const input: Record<string, unknown> = {};
-        for (const [key] of fields) input[key] = Number(data.get(key));
+        for (const [key, , , , unit] of fields)
+          input[key] = unit === "int" ? Number(data.get(key)) : Math.round(Number(data.get(key)) * 100);
         for (const key of [
           "address",
           "contactEmail",
@@ -298,6 +331,7 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
           "payrollTaxLabel",
         ])
           input[key] = String(data.get(key));
+        input.slotMinutes = Number(data.get("slotMinutes"));
         input.reminderDays = String(data.get("reminderDays"))
           .split(",")
           .map((s) => Number(s.trim()));
@@ -312,7 +346,7 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
         </p>
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
-        {fields.map(([key, label, min, max]) => (
+        {fields.map(([key, label, min, max, unit]) => (
           <div key={key}>
             <label htmlFor={`setting-${key}`}>{label}</label>
             <Input
@@ -322,12 +356,19 @@ function SettingsFields({ settings }: { settings: ClubSettings }) {
               type="number"
               min={min}
               max={max}
-              step={1}
+              step={unit === "int" ? 1 : "any"}
               required
-              defaultValue={settings[key]}
+              defaultValue={shown(key, unit)}
             />
           </div>
         ))}
+        <div>
+          <label htmlFor="setting-slotMinutes">A new session can start every</label>
+          <select id="setting-slotMinutes" name="slotMinutes" className="mt-2" defaultValue={settings.slotMinutes}>
+            <option value={30}>30 minutes (6:00, 6:30, 7:00…)</option>
+            <option value={60}>60 minutes (6:00, 7:00, 8:00…)</option>
+          </select>
+        </div>
         <div>
           <label htmlFor="tax-label">Payroll withholding label</label>
           <Input
@@ -408,8 +449,10 @@ function PlansEditor({ plans }: { plans: MembershipPlan[] }) {
       <div className="surface">
         <h2 className="text-xl font-semibold">Membership plans</h2>
         <p className="mt-3 text-sm text-slate-500">
-          These values apply to new purchases. Existing terms and receipts
-          retain their saved benefits and prices.
+          Set the monthly price; members choose 1 month, 3 months or annual at
+          checkout and the 3-month and annual discounts are applied to it. These
+          values apply to new purchases. Existing terms and receipts retain their
+          saved benefits and prices.
         </p>
       </div>
       {plans.map((p) => (
@@ -432,13 +475,21 @@ function PlanFields({ plan }: { plan: MembershipPlan }) {
       return client.invalidateQueries();
     },
   });
-  const fields = [
-    ["pricePaise", "Price · paise", 100, 100000000],
-    ["durationDays", "Term · days", 1, 730],
-    ["courtDiscountBps", "Court discount · basis points", 0, 10000],
-    ["shopDiscountBps", "Shop discount · basis points", 0, 10000],
-    ["foodDiscountBps", "Clubhouse discount · basis points", 0, 10000],
-    ["freeSessionsWeek", "Free sessions per week", 0, 14],
+  // Owners think in rupees and percent; the API stores integer paise and basis points.
+  const [monthly, setMonthly] = useState(String(plan.pricePaise / 100));
+  const [quarter, setQuarter] = useState(String(plan.quarterDiscountBps / 100));
+  const [annual, setAnnual] = useState(String(plan.annualDiscountBps / 100));
+  const toPaise = (v: string) => Math.round(Number(v) * 100);
+  const toBps = (v: string) => Math.round(Number(v) * 100);
+  const preview = {
+    pricePaise: toPaise(monthly) || 0,
+    quarterDiscountBps: toBps(quarter) || 0,
+    annualDiscountBps: toBps(annual) || 0,
+  };
+  const percentFields = [
+    ["courtDiscountBps", "Court discount · %"],
+    ["shopDiscountBps", "Shop discount · %"],
+    ["foodDiscountBps", "Clubhouse discount · %"],
   ] as const;
   return (
     <form
@@ -449,35 +500,58 @@ function PlanFields({ plan }: { plan: MembershipPlan }) {
         const input: Record<string, unknown> = {
           id: plan.id,
           active: data.get("active") === "on",
+          pricePaise: toPaise(monthly),
+          quarterDiscountBps: toBps(quarter),
+          annualDiscountBps: toBps(annual),
+          freeSessionsWeek: Number(data.get("freeSessionsWeek")),
         };
-        for (const [key] of fields) input[key] = Number(data.get(key));
+        for (const [key] of percentFields) input[key] = toBps(String(data.get(key)));
         mutation.mutate(input);
       }}
     >
-      <div className="mb-6 flex justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-semibold">{plan.name}</h3>
         <span className="text-sm text-slate-500">
-          {money(mutation.data?.pricePaise ?? plan.pricePaise)} ·{" "}
+          Currently {money(mutation.data?.pricePaise ?? plan.pricePaise)} / month ·{" "}
           {plan.juniorOnly ? "Under 18" : "All players"}
         </span>
       </div>
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {fields.map(([key, label, min, max]) => (
+        <div>
+          <label htmlFor={`${plan.id}-monthly`}>Monthly price · ₹</label>
+          <Input id={`${plan.id}-monthly`} className="mt-2" type="number" min={1} max={1000000} step="any" required value={monthly} onChange={(e) => setMonthly(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor={`${plan.id}-quarter`}>3-month discount · %</label>
+          <Input id={`${plan.id}-quarter`} className="mt-2" type="number" min={0} max={100} step="any" required value={quarter} onChange={(e) => setQuarter(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor={`${plan.id}-annual`}>Annual discount · %</label>
+          <Input id={`${plan.id}-annual`} className="mt-2" type="number" min={0} max={100} step="any" required value={annual} onChange={(e) => setAnnual(e.target.value)} />
+        </div>
+        {percentFields.map(([key, label]) => (
           <div key={key}>
             <label htmlFor={`${plan.id}-${key}`}>{label}</label>
-            <Input
-              id={`${plan.id}-${key}`}
-              name={key}
-              className="mt-2"
-              type="number"
-              min={min}
-              max={max}
-              step={1}
-              required
-              defaultValue={plan[key]}
-            />
+            <Input id={`${plan.id}-${key}`} name={key} className="mt-2" type="number" min={0} max={100} step="any" required defaultValue={plan[key] / 100} />
           </div>
         ))}
+        <div>
+          <label htmlFor={`${plan.id}-free`}>Free sessions per week</label>
+          <Input id={`${plan.id}-free`} name="freeSessionsWeek" className="mt-2" type="number" min={0} max={14} step={1} required defaultValue={plan.freeSessionsWeek} />
+        </div>
+      </div>
+      <div className="mt-6 grid gap-3 rounded-lg bg-slate-50 p-4 text-sm sm:grid-cols-3" aria-live="polite">
+        <p className="sm:col-span-3 text-xs font-medium uppercase tracking-wider text-slate-500">What members will pay</p>
+        {TERM_MONTHS.map((m) => {
+          const price = termPrice(preview, m);
+          return (
+            <div key={m}>
+              <p className="text-slate-500">{TERM_LABELS[m]}</p>
+              <p className="text-lg font-semibold text-slate-900">{money(price.totalPaise)}</p>
+              <p className="text-xs text-slate-500">{price.discountPaise ? `${money(price.monthlyEquivalentPaise)} a month · saves ${money(price.discountPaise)}` : `${money(price.monthlyEquivalentPaise)} a month`}</p>
+            </div>
+          );
+        })}
       </div>
       <label className="mt-6 flex items-center gap-3">
         <input
@@ -488,9 +562,6 @@ function PlanFields({ plan }: { plan: MembershipPlan }) {
         />
         Available to purchase
       </label>
-      <p className="mt-4 text-xs text-slate-400">
-        100 basis points = 1%. Save 1500 for a 15% discount.
-      </p>
       {mutation.error && (
         <p className="field-error mt-4" role="alert">
           {mutation.error.message}
@@ -498,7 +569,7 @@ function PlanFields({ plan }: { plan: MembershipPlan }) {
       )}
       {mutation.isSuccess && (
         <p className="mt-4 text-sm text-emerald-700" role="status">
-          Plan saved. Historical purchases preserved.
+          Plan saved. New purchases use these prices; past purchases and receipts are unchanged.
         </p>
       )}
       <Button className="mt-5" disabled={mutation.isPending}>

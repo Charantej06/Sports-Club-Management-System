@@ -396,10 +396,7 @@ export function prepareTicket(
   key: string,
   input: z.infer<typeof preparationSchema>,
 ) {
-  roles(
-    actor,
-    input.state === "SERVED" ? ["OWNER", "CASHIER"] : ["OWNER", "KITCHEN"],
-  );
+  roles(actor, ["OWNER", "KITCHEN", "CASHIER"]);
   return operation(actor, key, "kitchen.prepare", input, async (tx) => {
     const found = await tx.kitchenTicket.findUnique({
       where: { id: input.ticketId },

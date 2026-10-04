@@ -51,6 +51,7 @@ import {
   purchaseMembership,
 } from "@/modules/membership/service";
 import { payInvoice } from "@/modules/billing/service";
+import { registerSchema, registerMember } from "@/modules/members/service";
 import { receiptData } from "./queries";
 export async function mutate(request: Request, area: string, id?: string) {
   sameOrigin(request);
@@ -79,6 +80,8 @@ export async function mutate(request: Request, area: string, id?: string) {
       ? joinSocial(actor, key, id)
       : actSocial(actor, key, id, socialActionSchema.parse(input));
   }
+  if (area === "member")
+    return registerMember(actor, key, registerSchema.parse(input));
   if (area === "social-create")
     return createSocial(actor, key, socialCreateSchema.parse(input));
   if (area === "waiting") {

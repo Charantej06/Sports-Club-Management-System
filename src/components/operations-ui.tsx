@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { money } from "@/lib/utils";
 import { Button } from "./ui/button";
+import { promptText } from "./prompt-dialog";
 import {
   GatewayCheckout,
   GatewayHistory,
@@ -75,10 +76,10 @@ export function Feedback({ action }: { action: ReturnType<typeof useAction> }) {
 export function ReceiptLink({ id }: { id?: string | null }) {
   return id ? (
     <Link
-      className="text-xs text-orange-500 underline"
+      className="text-xs text-orange-400 hover:text-orange-300 underline font-medium inline-flex items-center gap-1 transition-colors"
       href={`/account/receipts/${id}`}
     >
-      Invoice / receipt →
+      View invoice & receipt →
     </Link>
   ) : null;
 }
@@ -136,92 +137,165 @@ export function CheckoutHold({
     ...(kind === "cancel" ? { reason: "Customer released checkout" } : {}),
     ...(area === "social" ? { participantId: hold.id } : {}),
   });
+
+  const totalPaise = hold.totalPaise ?? hold.pricePaise ?? 0;
+  const holdExpiryFormatted = hold.holdUntil
+    ? new Date(hold.holdUntil).toLocaleTimeString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : null;
+
   return (
     <div
-      className="notice my-6 space-y-4"
+      className="checkout-hold-card my-6 relative overflow-hidden rounded-xl border border-neutral-300 bg-white p-6 sm:p-8 text-neutral-900 shadow-sm"
       role="region"
       aria-label="Review checkout"
     >
-      <h2 className="text-xl">
-        Review your {area === "order" ? "order" : "session"}
-      </h2>
-      {hold.startsAt && (
-        <p>
-          {hold.title || hold.court?.name} ·{" "}
-          {new Date(hold.startsAt).toLocaleString("en-IN", {
-            timeZone: "Asia/Kolkata",
-          })}{" "}
-          · one hour
-        </p>
-      )}
-      <p>
-        Server total:{" "}
-        <strong>{money(hold.totalPaise ?? hold.pricePaise ?? 0)}</strong> ·{" "}
-        {hold.priceSnapshot?.plan || "Your applicable benefits"}
-      </p>
-      <p className="text-xs">
-        Held until{" "}
-        {hold.holdUntil
-          ? new Date(hold.holdUntil).toLocaleTimeString("en-IN", {
-              timeZone: "Asia/Kolkata",
-            })
-          : "checkout expires"}
-        . Confirm before expiry.
-      </p>
-      <p className="text-xs">
-        {modes.data?.local
-          ? "Local test payment: no money is collected."
-          : modes.data?.gateway
-            ? "Payment is verified with Razorpay before confirmation."
-            : "Online payments are not configured. Contact reception."}{" "}
-        Confirmed prices are saved with your invoice.
-      </p>
-      <ReceiptLink id={hold.invoiceId} />
-      <div className="flex flex-wrap gap-3">
-        {modes.data?.gateway &&
-        (hold.totalPaise ?? hold.pricePaise ?? 0) > 0 ? (
-          <GatewayCheckout
-            input={{
-              kind: area === "order" ? "order" : area,
-              targetId: hold.id,
-            }}
-            onDone={onDone}
-          />
-        ) : (
-          <Button
-            disabled={
-              action.isPending ||
-              modes.isPending ||
-              (!modes.data?.local &&
-                (hold.totalPaise ?? hold.pricePaise ?? 0) > 0)
-            }
-            onClick={() =>
-              action.mutate(
-                { area, id: eventId || hold.id, input: input("confirm") },
-                { onSuccess: onDone },
-              )
-            }
-          >
-            {action.isPending
-              ? "Processing…"
-              : (hold.totalPaise ?? hold.pricePaise ?? 0) === 0
-                ? "Confirm complimentary session"
-                : "Confirm · local test"}
-          </Button>
+      {/* Top status bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-4">
+        <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-orange-800">
+          <span className="size-2 rounded-full bg-orange-600" />
+          {area === "order" ? "Order Hold Active" : "Session Hold Active"}
+        </div>
+        {holdExpiryFormatted && (
+          <div className="flex items-center gap-2 rounded-md bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700 border border-neutral-200">
+            <span>
+              Expires at <strong className="text-neutral-950 font-semibold">{holdExpiryFormatted}</strong>
+            </span>
+          </div>
         )}
-        <Button
-          variant="outline"
-          disabled={action.isPending}
-          onClick={() =>
-            action.mutate(
-              { area, id: eventId || hold.id, input: input("cancel") },
-              { onSuccess: onDone },
-            )
-          }
-        >
-          Release hold
-        </Button>
       </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        {/* Left column: Session Details */}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-neutral-950">
+              Review your {area === "order" ? "order" : "session"}
+            </h2>
+            <p className="mt-1 text-xs text-neutral-600">
+              Your selection is reserved while you complete checkout.
+            </p>
+          </div>
+
+          {hold.startsAt ? (
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 space-y-1">
+              <h3 className="text-base font-semibold text-neutral-950">
+                {hold.title || hold.court?.name || "Court Session"}
+              </h3>
+              <p className="text-sm text-neutral-700">
+                {new Date(hold.startsAt).toLocaleDateString("en-IN", {
+                  timeZone: "Asia/Kolkata",
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+                {" · "}
+                {new Date(hold.startsAt).toLocaleTimeString("en-IN", {
+                  timeZone: "Asia/Kolkata",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+                {" · 1 hour session"}
+              </p>
+            </div>
+          ) : null}
+
+          {/* Pricing summary tile - crystal clear and bold */}
+          <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+            <div>
+              <p className="text-xs uppercase tracking-wider font-semibold text-neutral-500">Total Amount</p>
+              <p className="text-3xl font-extrabold tracking-tight text-neutral-950 mt-1">
+                {money(totalPaise)}
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="inline-flex items-center rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-xs font-semibold text-neutral-800">
+                {hold.priceSnapshot?.plan || "Standard Rate"}
+              </span>
+              <p className="mt-1 text-[11px] text-neutral-500">Benefits applied</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right column: Payment Reassurance & Action CTAs */}
+        <div className="flex flex-col justify-between space-y-5 rounded-lg border border-neutral-200 bg-neutral-50 p-5">
+          <div className="space-y-2">
+            <div className="text-xs font-bold uppercase tracking-wider text-neutral-800">
+              Payment Notice
+            </div>
+            <p className="text-xs leading-relaxed text-neutral-600">
+              {modes.data?.local
+                ? "Local test mode is active. No funds will be charged. Confirmed rates are saved with your account invoice."
+                : modes.data?.gateway
+                  ? "Payment is verified via secure Razorpay checkout before confirmation."
+                  : "Online payments are not configured. Contact reception."}
+            </p>
+            <div className="pt-1">
+              <ReceiptLink id={hold.invoiceId} />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3 pt-3 border-t border-neutral-200">
+            {modes.data?.gateway && totalPaise > 0 ? (
+              <GatewayCheckout
+                input={{
+                  kind: area === "order" ? "order" : area,
+                  targetId: hold.id,
+                }}
+                onDone={onDone}
+              />
+            ) : (
+              <Button
+                size="lg"
+                className="flex-1 min-w-[200px] bg-[#ff6b2c] hover:bg-[#ea580c] text-white font-bold transition-all shadow-sm active:scale-[0.99]"
+                disabled={
+                  action.isPending ||
+                  modes.isPending ||
+                  (!modes.data?.local && totalPaise > 0)
+                }
+                onClick={() =>
+                  action.mutate(
+                    { area, id: eventId || hold.id, input: input("confirm") },
+                    { onSuccess: onDone },
+                  )
+                }
+              >
+                {action.isPending ? (
+                  "Processing…"
+                ) : totalPaise === 0 ? (
+                  "Confirm Complimentary Session"
+                ) : area === "order" ? (
+                  "Pay and place order"
+                ) : area === "social" ? (
+                  "Confirm my place"
+                ) : (
+                  "Confirm booking"
+                )}
+              </Button>
+            )}
+            <Button
+              size="lg"
+              variant="outline"
+              className="border-neutral-300 bg-white hover:bg-neutral-100 text-neutral-800 font-semibold"
+              disabled={action.isPending}
+              onClick={() =>
+                action.mutate(
+                  { area, id: eventId || hold.id, input: input("cancel") },
+                  { onSuccess: onDone },
+                )
+              }
+            >
+              Release Hold
+            </Button>
+          </div>
+        </div>
+      </div>
+
       <Feedback action={action} />
     </div>
   );
@@ -292,10 +366,18 @@ export function History() {
     hold: Hold;
     eventId?: string;
   } | null>(null);
-  const cancel = (area: string, id: string, extra = {}) => {
-    const reason = window.prompt(
-      "Reason for cancellation (at least 5 characters)",
-    );
+  const cancel = async (area: string, id: string, extra = {}) => {
+    const reason =
+      area === "waiting"
+        ? "Left the waiting list"
+        : await promptText({
+            title: "Cancel this booking?",
+            description: "Please tell us why so we can offer the slot to someone else. Cancellation rules and refunds still apply.",
+            label: "Reason for cancelling",
+            placeholder: "e.g. Plans changed",
+            minLength: 5,
+            confirmLabel: "Cancel booking",
+          });
     if (reason)
       action.mutate({
         area,

@@ -118,7 +118,7 @@ export async function operationsData(
       end = new Date(+start + 86400000);
     const [courts, bookings, social, closures, members] = await Promise.all([
       db.court.findMany({
-        where: { active: true },
+        where: { status: { not: "INACTIVE" } },
         include: { sport: true },
         orderBy: { name: "asc" },
       }),
@@ -222,7 +222,7 @@ export async function operationsData(
     };
   }
   if (area === "kitchen") {
-    roles(actor, ["OWNER", "KITCHEN"]);
+    roles(actor, ["OWNER", "KITCHEN", "CASHIER"]);
     return db.kitchenTicket.findMany({
       where: { order: { status: "OPEN" } },
       include: {

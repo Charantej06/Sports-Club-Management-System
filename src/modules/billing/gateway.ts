@@ -21,6 +21,7 @@ import {
   purchaseSchema,
 } from "@/modules/membership/service";
 import { ageAt } from "@/modules/membership/rules";
+import { termPrice, type TermMonths } from "@/modules/membership/terms";
 import { actBooking, actSocial } from "@/modules/bookings/service";
 import { actOrder } from "@/modules/shop/service";
 import { refreshBill } from "@/modules/clubhouse/service";
@@ -271,7 +272,7 @@ export async function createIntent(
           "Junior players must be under 18 at term start.",
           422,
         );
-        amountPaise = plan.pricePaise;
+        amountPaise = termPrice(plan, input.input.months as TermMonths).totalPaise;
       } else {
         let invoiceId: string | null = input.targetId;
         if (input.kind === "booking") {
