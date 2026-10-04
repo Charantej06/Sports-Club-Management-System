@@ -204,7 +204,7 @@ test("A stranger can find the club: robots, sitemap, structured data and public 
   assert.match(robots, /Disallow: \/staff/);
   assert.match(robots, /Sitemap: .*\/sitemap\.xml/);
   const sitemap = await fetch(`${base}/sitemap.xml`).then((r) => r.text());
-  for (const path of ["/book", "/memberships", "/shop", "/clubhouse", "/book?sport=tennis"]) assert.ok(sitemap.includes(path.replace("&", "&amp;")), `${path} is listed`);
+  for (const path of ["/book", "/memberships", "/shop", "/clubhouse", "/book?sport=tennis"]) assert.ok(sitemap.includes(path.replaceAll("&", "&amp;")), `${path} is listed`);
   assert.ok(!sitemap.includes("/staff") && !sitemap.includes("/account"), "private areas are not advertised");
   const home = await fetch(`${base}/`).then((r) => r.text());
   const json = /<script type="application\/ld\+json">(.*?)<\/script>/s.exec(home);
