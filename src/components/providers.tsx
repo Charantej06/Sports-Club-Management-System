@@ -4,7 +4,15 @@ import { useState } from "react";
 import { NetworkNotice } from "./safe-drafts";
 import { ActionNotice } from "./action-notice";
 import { PromptHost } from "./prompt-dialog";
-export function Providers({ children }: { children: React.ReactNode }) {
+import { AuthProvider, type AuthUser } from "./auth-context";
+
+export function Providers({
+  children,
+  user,
+}: {
+  children: React.ReactNode;
+  user?: AuthUser;
+}) {
   const [client] = useState(
     () =>
       new QueryClient({
@@ -16,10 +24,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
   return (
     <QueryClientProvider client={client}>
-      <NetworkNotice />
-      <PromptHost />
-      <ActionNotice />
-      {children}
+      <AuthProvider initialUser={user}>
+        <NetworkNotice />
+        <PromptHost />
+        <ActionNotice />
+        {children}
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

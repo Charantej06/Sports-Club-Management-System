@@ -7,3 +7,9 @@ node_modules/
 src/generated/
 *.tsbuildinfo
 test-results/
+
+# Internal assistant and prompt files
+AGENTS.md
+PLAN.md
+public/images/trial-sports-prompts.md
+public/images/products/generated/prompts.md

@@ -200,7 +200,7 @@ export function CourtsView({
           {/* Keep checkout accessible if the customer changes to another sport. */}
           {hold && hold.area === "booking" && !data.sports.find((s) => s.id === sport)?.courts.some((c) => c.id === hold.courtId) && (
             <div>
-              <CheckoutHold {...hold} onDone={() => setHold(null)} />
+              <CheckoutHold {...hold} onDone={() => { void availability.refetch().finally(() => setHold(null)); }} />
             </div>
           )}
 
@@ -723,7 +723,7 @@ export function CourtsView({
                         <p role="alert" className="mt-3 text-sm text-orange-900">{action.error.message}</p>
                       )}
                       {hold?.area === "social" && hold.eventId === e.id && (
-                        <CheckoutHold {...hold} onDone={() => setHold(null)} />
+                        <CheckoutHold {...hold} onDone={() => { void social.refetch().finally(() => setHold(null)); }} />
                       )}
                     </div>
                   </article>

@@ -9,5 +9,13 @@ export const metadata: Metadata = { title: { default: "Champions Club — Your g
 export const dynamic = "force-dynamic";
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() });
-  return <html lang="en" data-scroll-behavior="smooth"><body><Providers><a className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:bg-orange-500 focus:p-3 focus:text-black" href="#main">Skip to content</a><SiteHeader name={session?.user.name} staff={!!session && session.user.role !== "MEMBER"}/><main id="main" className="w-full max-w-full overflow-x-hidden">{children}</main><SiteFooter/></Providers></body></html>;
+  const user = session?.user
+    ? {
+        id: session.user.id,
+        name: session.user.name,
+        email: session.user.email,
+        role: session.user.role,
+      }
+    : null;
+  return <html lang="en" data-scroll-behavior="smooth"><body><Providers user={user}><a className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:bg-orange-500 focus:p-3 focus:text-black" href="#main">Skip to content</a><SiteHeader name={session?.user.name} staff={!!session && session.user.role !== "MEMBER"}/><main id="main" className="w-full max-w-full overflow-x-hidden">{children}</main><SiteFooter/></Providers></body></html>;
 }

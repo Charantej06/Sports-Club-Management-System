@@ -12,8 +12,21 @@ import { Button } from "./ui/button";
 import { useAction } from "./operations-ui";
 import { GatewayCheckout, usePaymentModes } from "./gateway-checkout";
 import { CheckoutArt } from "./checkout-art";
-const storage = "champions-cart-v2",
-  empty = "[]";
+import {
+  readActiveCart,
+  writeActiveCart,
+  addCartItem,
+  getActiveCartKey,
+  cleanLegacyCarts,
+  parseCartItems,
+  type CartItem,
+} from "@/lib/cart-store";
+import { useCurrentUser } from "./auth-context";
+
+export { setActiveCartUserId, clearActiveCart } from "@/lib/cart-store";
+
+const empty = "[]";
+
 function subscribe(listener: () => void) {
   window.addEventListener("storage", listener);
   window.addEventListener("club-cart", listener);
@@ -22,19 +35,20 @@ function subscribe(listener: () => void) {
     window.removeEventListener("club-cart", listener);
   };
 }
+
 function snapshot() {
-  return localStorage.getItem(storage) || empty;
+  if (typeof window === "undefined") return empty;
+  cleanLegacyCarts();
+  const key = getActiveCartKey();
+  try {
+    return window.localStorage.getItem(key) || empty;
+  } catch {
+    return empty;
+  }
 }
+
 export function addCart(variantId: string) {
-  const cart = JSON.parse(snapshot()) as {
-    variantId: string;
-    quantity: number;
-  }[];
-  const item = cart.find((i) => i.variantId === variantId);
-  if (item) item.quantity = Math.min(20, item.quantity + 1);
-  else cart.push({ variantId, quantity: 1 });
-  localStorage.setItem(storage, JSON.stringify(cart));
-  window.dispatchEvent(new Event("club-cart"));
+  addCartItem(variantId);
 }
 export function CartLink() {
   const raw = useSyncExternalStore(subscribe, snapshot, () => empty);
@@ -61,8 +75,9 @@ type OrderCheckout = {
   invoiceId: string;
 };
 export function Cart() {
+  const user = useCurrentUser();
   const raw = useSyncExternalStore(subscribe, snapshot, () => empty);
-  const items = JSON.parse(raw) as { variantId: string; quantity: number }[];
+  const items: CartItem[] = parseCartItems(raw);
   const [delivery, setDelivery] = useState(false);
   const [hold, setHold] = useState<OrderCheckout | null>(null);
   const [complete, setComplete] = useState<OrderCheckout | null>(null);
@@ -70,7 +85,7 @@ export function Cart() {
   const [gatewayPending, setGatewayPending] = useState(false);
   const [error, setError] = useState("");
   const lock = useRef(false);
-  const submittedItems = useRef<typeof items>([]);
+  const submittedItems = useRef<CartItem[]>([]);
   const create = useAction(),
     confirm = useAction(),
     cancel = useAction();
@@ -99,42 +114,37 @@ export function Cart() {
   );
   function change(id: string, quantity: number) {
     if (busy || hold) return;
-    localStorage.setItem(
-      storage,
-      JSON.stringify(
-        items
-          .map((i) => (i.variantId === id ? { ...i, quantity } : i))
-          .filter((i) => i.quantity > 0),
-      ),
-    );
-    window.dispatchEvent(new Event("club-cart"));
+    const current = readActiveCart();
+    const next = current
+      .map((i) => (i.variantId === id ? { ...i, quantity } : i))
+      .filter((i) => i.quantity > 0);
+    writeActiveCart(next);
   }
   function done(order: OrderCheckout) {
     // Remove only the submitted quantities, preserving any kit added in another tab.
-    const submitted = new Map(
+    const submitted = new Map<string, number>(
       submittedItems.current.map((i) => [i.variantId, i.quantity]),
     );
-    const current = JSON.parse(snapshot()) as typeof items;
-    localStorage.setItem(
-      storage,
-      JSON.stringify(
-        current
-          .map((i) => ({
-            ...i,
-            quantity: Math.max(
-              0,
-              i.quantity - (submitted.get(i.variantId) || 0),
-            ),
-          }))
-          .filter((i) => i.quantity > 0),
-      ),
-    );
-    window.dispatchEvent(new Event("club-cart"));
+    const current = readActiveCart();
+    const remaining = current
+      .map((i) => ({
+        ...i,
+        quantity: Math.max(
+          0,
+          i.quantity - (submitted.get(i.variantId) ?? 0),
+        ),
+      }))
+      .filter((i) => i.quantity > 0);
+    writeActiveCart(remaining);
     setComplete(order);
     setHold(null);
   }
   async function checkout(form: HTMLFormElement) {
     if (lock.current) return;
+    if (!user) {
+      setError("Please sign in to complete your checkout.");
+      return;
+    }
     lock.current = true;
     setBusy(true);
     setError("");
@@ -217,9 +227,14 @@ export function Cart() {
               </p>
             )}
             {(query.error || modes.error || error) && (
-              <p role="alert" className="field-error my-5">
-                {error || query.error?.message || modes.error?.message}
-              </p>
+              <div role="alert" className="field-error my-5">
+                <span>{error || query.error?.message || modes.error?.message}</span>
+                {(error || "").toLowerCase().includes("sign in") && (
+                  <Link href="/login" className="ml-2 font-semibold underline text-orange-400">
+                    Sign in
+                  </Link>
+                )}
+              </div>
             )}
             {!items.length ? (
               <div className="checkout-empty">
@@ -417,7 +432,24 @@ export function Cart() {
                       Local test payment. No money is charged.
                     </p>
                   )}
-                  {hold && modes.data?.gateway ? (
+                  {!user ? (
+                    <div className="space-y-3">
+                      <Button asChild className="w-full">
+                        <Link href="/login">Sign in to checkout</Link>
+                      </Button>
+                      <p className="text-center text-xs text-neutral-400">
+                        Your cart items are saved.{" "}
+                        <Link href="/login" className="text-orange-400 underline">
+                          Sign in
+                        </Link>{" "}
+                        or{" "}
+                        <Link href="/signup" className="text-orange-400 underline">
+                          join the club
+                        </Link>{" "}
+                        to complete your order.
+                      </p>
+                    </div>
+                  ) : hold && modes.data?.gateway ? (
                     <div className="checkout-payment">
                       <p>
                         Ready to pay {money(hold.totalPaise)} including your

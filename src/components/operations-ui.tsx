@@ -141,6 +141,31 @@ export function CheckoutHold({
     ...(area === "social" ? { participantId: hold.id } : {}),
   });
 
+  const [cancelling, setCancelling] = useState(false);
+  const [completed, setCompleted] = useState(false);
+
+  const handleDone = () => {
+    setCompleted(true);
+    onDone();
+  };
+
+  const handleClose = () => {
+    if (completed || cancelling) return;
+    if (action.isPending) {
+      onDone();
+      return;
+    }
+    setCancelling(true);
+    action.mutate(
+      { area, id: eventId || hold.id, input: input("cancel") },
+      {
+        onSettled: () => {
+          onDone();
+        },
+      },
+    );
+  };
+
   const totalPaise = hold.totalPaise ?? hold.pricePaise ?? 0;
   const holdExpiryFormatted = hold.holdUntil
     ? new Date(hold.holdUntil).toLocaleTimeString("en-IN", {
@@ -152,11 +177,21 @@ export function CheckoutHold({
     : null;
 
   return (
-    <Dialog.Root open onOpenChange={(open) => { if (!open) onDone(); }}><Dialog.Portal>
+    <Dialog.Root open onOpenChange={(open) => { if (!open) handleClose(); }}><Dialog.Portal>
     <Dialog.Overlay className="fixed inset-0 z-50 bg-black/70" />
-    <Dialog.Content aria-describedby={undefined} className="fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl bg-white text-neutral-900 shadow-xl">
+    <Dialog.Content aria-describedby={undefined} className={`fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl bg-white text-neutral-900 shadow-xl ${cancelling ? "opacity-75 pointer-events-none" : ""}`}>
     <Dialog.Title className="sr-only">Complete payment</Dialog.Title>
-    <Dialog.Close className="absolute right-4 top-2 z-10 rounded bg-white px-3 py-1 text-neutral-900" aria-label="Close checkout">Close</Dialog.Close>
+    <Dialog.Close
+      className="absolute right-4 top-2 z-10 rounded border border-neutral-200 bg-white px-3 py-1 text-neutral-900 transition hover:bg-neutral-100 disabled:opacity-50"
+      aria-label="Close checkout"
+      disabled={cancelling}
+      onClick={(e) => {
+        e.preventDefault();
+        handleClose();
+      }}
+    >
+      {cancelling ? "Releasing…" : "Close"}
+    </Dialog.Close>
     <div
       className="checkout-hold-card my-6 relative overflow-hidden rounded-xl border border-neutral-300 bg-white p-6 sm:p-8 text-neutral-900 shadow-sm"
       role="region"
@@ -255,7 +290,7 @@ export function CheckoutHold({
                   kind: area === "order" ? "order" : area,
                   targetId: hold.id,
                 }}
-                onDone={onDone}
+                onDone={handleDone}
                 autoStart
               />
             ) : (
@@ -264,13 +299,14 @@ export function CheckoutHold({
                 className="flex-1 min-w-[200px] bg-[#ff6b2c] hover:bg-[#ea580c] text-white font-bold transition-all shadow-sm active:scale-[0.99]"
                 disabled={
                   action.isPending ||
+                  cancelling ||
                   modes.isPending ||
                   (!modes.data?.local && totalPaise > 0)
                 }
                 onClick={() =>
                   action.mutate(
                     { area, id: eventId || hold.id, input: input("confirm") },
-                    { onSuccess: onDone },
+                    { onSuccess: handleDone },
                   )
                 }
               >
@@ -287,15 +323,14 @@ export function CheckoutHold({
               size="lg"
               variant="outline"
               className="border-neutral-300 bg-white hover:bg-neutral-100 text-neutral-800 font-semibold"
-              disabled={action.isPending}
-              onClick={() =>
-                action.mutate(
-                  { area, id: eventId || hold.id, input: input("cancel") },
-                  { onSuccess: onDone },
-                )
-              }
+              disabled={action.isPending || cancelling}
+              onClick={handleClose}
             >
-              {area === "order" ? "Cancel order" : "Cancel booking"}
+              {cancelling
+                ? "Releasing hold…"
+                : area === "order"
+                  ? "Cancel order"
+                  : "Cancel booking"}
             </Button>
           </div>
         </div>
@@ -407,7 +442,7 @@ export function History() {
   return (
     <div className="mt-8 space-y-7">
       <GatewayHistory />
-      {hold && <CheckoutHold {...hold} onDone={() => setHold(null)} />}
+      {hold && <CheckoutHold {...hold} onDone={() => { void query.refetch().finally(() => setHold(null)); }} />}
       <Feedback action={action} />
       <section className="rounded border border-current/15 p-6">
         <h2 className="text-xl">Courts & social play</h2>
