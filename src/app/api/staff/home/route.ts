@@ -14,7 +14,7 @@ export const GET = route(async (request) => {
     end = new Date(+start + 86400000);
   const cards: { label: string; count: number; tab: string }[] = [];
   if (["OWNER", "RECEPTION"].includes(user.role)) {
-    const [arrivals, checkedIn, followups] = await Promise.all([
+    const [arrivals, checkedIn, followups, courts] = await Promise.all([
       db.reservation.count({
         where: {
           startsAt: { gte: start, lt: end },
@@ -37,6 +37,7 @@ export const GET = route(async (request) => {
           ],
         },
       }),
+      db.court.count({ where: { active: true } }),
     ]);
     cards.push(
       {
@@ -50,6 +51,7 @@ export const GET = route(async (request) => {
         tab: "reception",
       },
       { label: "New / due enquiries", count: followups, tab: "crm" },
+      { label: "Active courts & slots", count: courts, tab: "courts" },
     );
   }
   if (["OWNER", "CASHIER"].includes(user.role)) {

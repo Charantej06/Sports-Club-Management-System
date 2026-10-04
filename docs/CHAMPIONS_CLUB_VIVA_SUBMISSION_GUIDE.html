@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Champions Club — Final Submission &amp; Viva Technical Mastery Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+  @page {
+    size: A4;
+    margin: 16mm 14mm 16mm 14mm;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #1a202c;
+    background: #ffffff;
+    line-height: 1.55;
+    font-size: 9.5pt;
+    margin: 0;
+    padding: 0;
+  }
+
+  .cover {
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 90vh;
+    padding: 30px;
+    border-left: 8px solid #dd6b20;
+    background: linear-gradient(135deg, #fffaf0 0%, #ffffff 100%);
+    box-sizing: border-box;
+  }
+
+  .cover h1 {
+    font-size: 26pt;
+    font-weight: 800;
+    color: #1a202c;
+    line-height: 1.15;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+    border: none;
+    padding: 0;
+  }
+
+  .cover .subtitle {
+    font-size: 13.5pt;
+    font-weight: 600;
+    color: #c05621;
+    margin-bottom: 20px;
+  }
+
+  .cover .badge {
+    display: inline-block;
+    background: #2d3748;
+    color: #ffffff;
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 25px;
+  }
+
+  .cover .meta-box {
+    margin-top: 30px;
+    padding: 16px 20px;
+    background: #edf2f7;
+    border-radius: 6px;
+    font-size: 9pt;
+    width: 85%;
+    border-left: 4px solid #4a5568;
+  }
+
+  .cover .meta-box p {
+    margin: 5px 0;
+    color: #4a5568;
+  }
+
+  .cover .meta-box strong {
+    color: #1a202c;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Inter', sans-serif;
+    color: #2d3748;
+    font-weight: 700;
+    margin-top: 1.4em;
+    margin-bottom: 0.5em;
+    page-break-after: avoid;
+  }
+
+  h1 {
+    font-size: 15pt;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 6px;
+    color: #c05621;
+    margin-top: 2em;
+  }
+
+  h2 {
+    font-size: 12pt;
+    color: #2b6cb0;
+    border-left: 4px solid #2b6cb0;
+    padding-left: 8px;
+    margin-top: 1.4em;
+  }
+
+  h3 {
+    font-size: 10pt;
+    color: #2d3748;
+    margin-top: 1.1em;
+  }
+
+  p {
+    margin: 0.5em 0;
+    text-align: justify;
+  }
+
+  code, pre {
+    font-family: 'JetBrains Mono', Consolas, Monaco, monospace;
+    font-size: 8pt;
+  }
+
+  p code, li code, td code {
+    background: #edf2f7;
+    color: #b83280;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  pre {
+    background: #1a202c;
+    color: #edf2f7;
+    padding: 10px 14px;
+    border-radius: 6px;
+    overflow-x: auto;
+    line-height: 1.4;
+    margin: 0.7em 0;
+    border: 1px solid #2d3748;
+    white-space: pre-wrap;
+    word-break: break-all;
+    page-break-inside: avoid;
+  }
+
+  pre .kw { color: #f687b3; font-weight: bold; }
+  pre .fn { color: #63b3ed; }
+  pre .str { color: #68d391; }
+  pre .num { color: #f6ad55; }
+  pre .comment { color: #a0aec0; font-style: italic; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.8em 0;
+    font-size: 8pt;
+    page-break-inside: avoid;
+  }
+
+  th, td {
+    padding: 6px 8px;
+    border: 1px solid #cbd5e0;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: #edf2f7;
+    font-weight: 700;
+    color: #2d3748;
+  }
+
+  tr:nth-child(even) td {
+    background: #f7fafc;
+  }
+
+  .callout {
+    padding: 10px 14px;
+    border-radius: 5px;
+    margin: 0.8em 0;
+    font-size: 8.5pt;
+    page-break-inside: avoid;
+  }
+
+  .callout-info {
+    background: #ebf8ff;
+    border-left: 4px solid #3182ce;
+    color: #2b6cb0;
+  }
+
+  .callout-warning {
+    background: #fffaf0;
+    border-left: 4px solid #dd6b20;
+    color: #9c4221;
+  }
+
+  .callout-trap {
+    background: #fff5f5;
+    border-left: 4px solid #e53e3e;
+    color: #9b2c2c;
+  }
+
+  .callout-success {
+    background: #f0fff4;
+    border-left: 4px solid #38a169;
+    color: #276749;
+  }
+
+  .callout strong {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 9pt;
+  }
+
+  .page-break {
+    page-break-after: always;
+  }
+
+  ul, ol {
+    margin: 0.4em 0;
+    padding-left: 20px;
+  }
+
+  li {
+    margin-bottom: 3px;
+  }
+
+  .flow-box {
+    background: #f7fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 8px 0;
+    font-size: 8.5pt;
+    line-height: 1.6;
+    page-break-inside: avoid;
+  }
+
+  .step-num {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+    text-align: center;
+    background: #dd6b20;
+    color: white;
+    font-weight: bold;
+    border-radius: 50%;
+    margin-right: 5px;
+    font-size: 7.5pt;
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="badge">Master Defense &amp; Viva Technical Manual</div>
+  <h1>CHAMPIONS CLUB</h1>
+  <div class="subtitle">Enterprise Athletic Club &amp; Sports Complex Management Monolith</div>
+  <p style="font-size: 10.5pt; color: #4a5568; max-width: 650px;">
+    An exhaustive, end-to-end technical compendium covering Prisma ORM architecture, database schema internals, PostgreSQL GiST exclusion constraints, Clean Architecture execution flows, code walkthroughs, live demo scripts, and examiner defense strategies.
+  </p>
+  <div class="meta-box">
+    <p><strong>System Monolith:</strong> Next.js App Router (16.3.8) + TypeScript Strict + PostgreSQL 18</p>
+    <p><strong>Persistence:</strong> Prisma ORM (7.10.0) + Native SQL Migrations + B-Tree / GiST Indexes</p>
+    <p><strong>Concurrency Controls:</strong> Row Locks (<code>FOR UPDATE</code>) + PostgreSQL Exclusion Constraints + Advisory Locks</p>
+    <p><strong>Background Engine:</strong> Transactional Outbox Worker (<code>SKIP LOCKED</code>) + Scheduled Reminders</p>
+    <p><strong>Target Evaluation:</strong> Final Project Submission, Code Inspection, Technical Viva &amp; Live Demonstration</p>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- CHAPTER 1: ARCHITECTURAL OVERVIEW -->
+<!-- ========================================== -->
+<h1>1. Executive Architecture &amp; Invariant Rules</h1>
+<p>
+Champions Club is built as a <strong>modular Next.js App Router monolith</strong> following Domain-Driven Design (DDD) and Clean Architecture principles. It solves real-world athletic club operations across court reservations, membership subscriptions, retail e-commerce/POS, restaurant dining, staff HR/payroll, and financial double-entry accounting.
+</p>
+
+<h3>Core Engineering Invariants (Examiner Must-Knows)</h3>
+<ul>
+  <li><strong>Server-Authoritative Pricing:</strong> Clients never submit prices, discounts, or roles. The server queries the database, applies plan snapshots, and enforces the source of truth.</li>
+  <li><strong>Integer Paise Representation:</strong> All monetary values are 64-bit integers in Indian Paise (&#8377;1.00 = 100 paise). Eliminates IEEE-754 floating-point rounding errors (e.g. <code>0.1 + 0.2 !== 0.3</code>).</li>
+  <li><strong>Asia/Kolkata Business Calendar:</strong> All timestamps persist in UTC (ISO 8601), but operational club days (06:00 to 23:00), daily quotas, and court schedules evaluate strictly in <code>Asia/Kolkata</code> timezone.</li>
+  <li><strong>Immutable Financial Snapshots:</strong> Once an invoice is issued, database triggers prevent mutations to line items or totals. Plan benefits and pricing snapshots are frozen in JSON columns at purchase time.</li>
+  <li><strong>High-Concurrency Protection:</strong> Simultaneous race conditions (booking the same court, buying the last racket in stock, claiming the final mixer slot) are defeated at the database engine level using PostgreSQL GiST exclusion constraints and row-level locks (<code>SELECT FOR UPDATE</code>).</li>
+</ul>
+
+<div class="callout callout-info">
+  <strong>System Structure Mapping</strong>
+  <code>src/app/api/*</code>: Authenticates cookies via Better Auth, validates input via strict Zod schemas.<br>
+  <code>src/modules/*</code>: Isolated business domains (<code>bookings</code>, <code>shop</code>, <code>clubhouse</code>, <code>billing</code>, <code>membership</code>, <code>operations</code>).<br>
+  <code>src/worker.ts</code>: Independent Node daemon claiming outbox jobs via <code>FOR UPDATE SKIP LOCKED</code>.
+</div>
+
+<div class="page-break"></div>
+
+<!-- ========================================== -->
+<!-- CHAPTER 2: PRISMA ORM & SCHEMA DEEP DIVE -->
+<!-- ========================================== -->
+<h1>2. Prisma ORM &amp; Schema Deep-Dive</h1>
+
+<p>
+<strong>What is Prisma ORM?</strong> Prisma is a modern, next-generation TypeScript Object-Relational Mapper (ORM) composed of:
+</p>
+<ol>
+  <li><strong>Prisma Schema (<code>schema.prisma</code>):</strong> The declarative single source of truth describing models, relations, enums, data types, and database mappings.</li>
+  <li><strong>Prisma Client (<code>@prisma/client</code>):</strong> An auto-generated, type-safe query builder that compiles TypeScript method calls (e.g. <code>tx.reservation.create()</code>) into optimized SQL queries.</li>
+  <li><strong>Prisma Migrate:</strong> Declarative migration engine tracking database schema evolution via versioned SQL migration folders in <code>prisma/migrations</code>.</li>
+  <li><strong>Prisma Query Engine:</strong> A high-performance binary/Rust-backed query engine that manages connection pools, prepares parameterized SQL statements (preventing SQL injection), and maps relational rows to structured JSON objects.</li>
+</ol>
+
+<h2>2.1 The Anatomy of <code>schema.prisma</code></h2>
+<p>Open <code>prisma/schema.prisma</code>. It starts with two configuration blocks:</p>
+
+<pre><span class="kw">generator</span> client {
+  provider = <span class="str">"prisma-client"</span>
+  output   = <span class="str">"../src/generated/prisma"</span>  <span class="comment">// Custom generated location for strict isolation</span>
+}
+
+<span class="kw">datasource</span> db {
+  provider = <span class="str">"postgresql"</span>              <span class="comment">// Target database engine</span>
+}</pre>
+
+<h2>2.2 Database Enums</h2>
+<table>
+  <tr><th>Enum Name</th><th>Values</th><th>Purpose &amp; Invariant</th></tr>
+  <tr>
+    <td><code>Role</code></td>
+    <td><code>MEMBER, RECEPTION, CASHIER, KITCHEN, OWNER</code></td>
+    <td>Enforces Role-Based Access Control (RBAC). Stored in the User model. Owner has full administrative clearance.</td>
+  </tr>
+  <tr>
+    <td><code>MembershipStatus</code></td>
+    <td><code>ACTIVE, SUPERSEDED</code></td>
+    <td>Tracks subscription validity. When renewed or upgraded, older terms transition to <code>SUPERSEDED</code>.</td>
+  </tr>
+  <tr>
+    <td><code>Department</code></td>
+    <td><code>MEMBERSHIP, COURT, SHOP, CLUBHOUSE</code></td>
+    <td>Scopes invoices, ledger entries, quotes, and departmental access guards.</td>
+  </tr>
+  <tr>
+    <td><code>ReservationStatus</code></td>
+    <td><code>HOLD, CONFIRMED, CANCELLED, EXPIRED</code></td>
+    <td>Life cycle states of court bookings. Only <code>HOLD</code> and <code>CONFIRMED</code> block court availability.</td>
+  </tr>
+  <tr>
+    <td><code>JobStatus</code></td>
+    <td><code>PENDING, RUNNING, DONE, FAILED, CANCELLED</code></td>
+    <td>Durable transactional outbox job states. Prevents duplicate execution.</td>
+  </tr>
+</table>
+
+<h2>2.3 The "Little Things" in Schema That Examiners Grill On</h2>
+<table>
+  <tr><th>Prisma Attribute</th><th>What it Means Under the Hood</th><th>Why It Was Chosen / Examiner Gotcha</th></tr>
+  <tr>
+    <td><code>@id</code></td>
+    <td>Defines the Primary Key constraint (<code>PRIMARY KEY</code> in SQL).</td>
+    <td>Every database entity requires a unique identifier.</td>
+  </tr>
+  <tr>
+    <td><code>@default(cuid())</code></td>
+    <td>Generates a Collision-resistant Unique Identifier (CUID) on insert.</td>
+    <td>Unlike integer auto-increments (1, 2, 3), CUIDs are unpredictable (prevents enumeration attacks) and safe in distributed environments without central coordination.</td>
+  </tr>
+  <tr>
+    <td><code>@unique</code></td>
+    <td>Creates a SQL <code>UNIQUE</code> constraint on a single column.</td>
+    <td>e.g. <code>email</code> or <code>championsId</code>. Database rejects duplicate inserts instantly with error code <code>P2002</code>.</td>
+  </tr>
+  <tr>
+    <td><code>@@unique([colA, colB])</code></td>
+    <td>Composite Unique Constraint spanning two or more columns.</td>
+    <td>e.g. <code>@@unique([department, originId])</code> prevents an origin order/booking from generating multiple invoices! Or <code>@@unique([userId, key])</code> in Checkout for idempotency.</td>
+  </tr>
+  <tr>
+    <td><code>@@index([colA, colB])</code></td>
+    <td>Composite B-Tree Index in PostgreSQL.</td>
+    <td>Crucial for performance! e.g. <code>@@index([courtId, startsAt])</code> allows PostgreSQL to instantly look up court slots in <code>O(log N)</code> instead of scanning the entire table (<code>O(N)</code>).</td>
+  </tr>
+  <tr>
+    <td><code>@db.Timestamptz(3)</code></td>
+    <td>PostgreSQL <code>TIMESTAMP WITH TIME ZONE</code> with 3-digit microsecond precision.</td>
+    <td>Stores explicit UTC offsets. Prevents daylight saving or server clock skew bugs across date calculations.</td>
+  </tr>
+  <tr>
+    <td><code>@db.Date</code></td>
+    <td>PostgreSQL <code>DATE</code> type (year-month-day only, without time).</td>
+    <td>Used for <code>clubDay</code> and <code>dateOfBirth</code>. Prevents timezone shifts from changing a user's birthday or club date.</td>
+  </tr>
+  <tr>
+    <td><code>Json</code></td>
+    <td>PostgreSQL <code>JSONB</code> binary JSON storage.</td>
+    <td>Used for <code>planSnapshot</code> and <code>priceSnapshot</code>. Stores immutable historical snapshots of benefits and discounts at the exact second of purchase.</td>
+  </tr>
+  <tr>
+    <td><code>@relation(..., onDelete: Cascade)</code></td>
+    <td>Foreign key cascade deletion constraint.</td>
+    <td>When a parent <code>User</code> is deleted, its associated <code>Session</code> and <code>Account</code> rows are automatically deleted by the database engine.</td>
+  </tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>2.4 Complete Model-by-Model Breakdown</h2>
+
+<h3>Group A: Authentication, Users &amp; Business Settings</h3>
+<ul>
+  <li><code>User</code>: Core customer/staff identity. Contains <code>email</code>, <code>role</code>, <code>championsId</code> (human-readable club ID like <code>CC-MEM-XXXX</code>), and relations to all activity.</li>
+  <li><code>Session</code> &amp; <code>Account</code>: Better Auth session tokens and OAuth/password provider credentials with expiry timestamps.</li>
+  <li><code>ClubSettings</code>: Singleton configuration record (<code>id: "club"</code>). Holds club operating hours (<code>openHour: 6</code>, <code>closeHour: 23</code>), <code>bookingWindowDays: 14</code>, <code>dailySessionLimit: 2</code>, <code>holdMinutes: 5</code>, <code>cancellationHours: 12</code>, <code>tabLimitPaise: 500000</code> (&#8377;5,000), and reminder schedules.</li>
+</ul>
+
+<h3>Group B: Memberships &amp; Contactless Access</h3>
+<ul>
+  <li><code>MembershipPlan</code>: Subscription templates (Gold, Silver, Junior). Configures pricing in paise, duration (e.g. 90 days), discount basis points (<code>courtDiscountBps</code>, <code>shopDiscountBps</code>, <code>foodDiscountBps</code>), and complimentary sessions (<code>freeSessionsWeek</code>).</li>
+  <li><code>Membership</code>: Realized subscription instance for a user. Holds <code>startsAt</code>, <code>endsAt</code>, <code>status</code> (ACTIVE/SUPERSEDED), and <code>planSnapshot</code> (JSON frozen benefits).</li>
+  <li><code>MemberCard</code>: Digital member pass holding an opaque encrypted token (<code>token</code>) for QR generation and check-in scanning.</li>
+</ul>
+
+<h3>Group C: Facility Bookings, Social Mixers &amp; Waitlists</h3>
+<ul>
+  <li><code>Sport</code> &amp; <code>Court</code>: Facility inventory (Tennis, Padel, Badminton, Cricket) with hourly pricing in paise and indoor/outdoor status.</li>
+  <li><code>Reservation</code>: Court booking record. Contains <code>courtId</code>, <code>startsAt</code>, <code>endsAt</code>, <code>clubDay</code>, <code>status</code> (HOLD, CONFIRMED, CANCELLED, EXPIRED), <code>holdUntil</code> (5-minute timer), and <code>pricePaise</code>.</li>
+  <li><code>CourtClosure</code>: Maintenance/operational closure intervals blocking court availability.</li>
+  <li><code>SocialEvent</code>: Capacity-gated Friday multiplayer mixers linked to a parent court reservation.</li>
+  <li><code>SocialParticipant</code>: Individual player slot in a social event with independent checkout hold and invoice.</li>
+  <li><code>WaitlistEntry</code>: FIFO queue entry for fully booked court slots or social events with 30-minute offer windows.</li>
+</ul>
+
+<h3>Group D: Retail Pro-Shop &amp; Multi-Channel Inventory</h3>
+<ul>
+  <li><code>Product</code>: E-commerce catalog item categorized by sport and category.</li>
+  <li><code>ProductVariant</code>: Specific purchasable SKU (size, grip, color). Tracks physical <code>stock</code> and temporarily <code>reserved</code> units.</li>
+  <li><code>StockMovement</code>: Audited inventory adjustments (purchase deductions, restocks, damage write-offs) with actor ID and reason.</li>
+  <li><code>ShopOrder</code> &amp; <code>ShopOrderLine</code>: Counter POS and online delivery orders with delivery address and fulfillment states (PENDING, COLLECTED, DISPATCHED, DELIVERED).</li>
+</ul>
+
+<h3>Group E: Clubhouse Dining &amp; Kitchen POS</h3>
+<ul>
+  <li><code>DiningTable</code>: Restaurant dining table records (Table 1, Table 2, etc.) with seating capacity.</li>
+  <li><code>KitchenOrder</code>: Open dining table session tracking <code>tabEnabled</code>, <code>ageConfirmed</code> (for alcohol), and overall preparation stage. Protected by unique index: only <strong>one active open bill per table</strong>!</li>
+  <li><code>KitchenTicket</code> &amp; <code>KitchenLine</code>: Granular food orders sent to the kitchen display system (KDS). Tracks revisions and lifecycle (ACCEPTED &rarr; COOKING &rarr; READY &rarr; SERVED).</li>
+</ul>
+
+<h3>Group F: Double-Entry Financial Ledger</h3>
+<ul>
+  <li><code>Invoice</code> &amp; <code>InvoiceLine</code>: Server-generated bills across all departments. Snapshotted subtotal, discount, total in paise, and payment due date. Protected against mutation by PostgreSQL triggers.</li>
+  <li><code>Payment</code>: Recorded monetary transaction. Holds payment method (LOCAL, CASH, CARD, UPI, GATEWAY), source (LOCAL_SIMULATED, MANUAL_RECORDED, GATEWAY_VERIFIED), and link to <code>CashShift</code>.</li>
+  <li><code>PaymentAllocation</code>: Links payments to invoices. Enforces that payments cannot exceed invoice totals.</li>
+  <li><code>Credit</code> &amp; <code>Refund</code>: Credit notes issued for cancellations or returns, and audited cash/gateway refunds.</li>
+  <li><code>BusinessQuote</code>: Persisted corporate or event quotes convertible into unpaid business invoices.</li>
+</ul>
+
+<h3>Group G: Staff Operations, HR &amp; Payroll</h3>
+<ul>
+  <li><code>CashShift</code> &amp; <code>CashPayout</code>: Cash drawer audit session. Tracks opening float, receipts, refunds, payouts, counted cash, and audited discrepancy explanations.</li>
+  <li><code>Employee</code>, <code>StaffShift</code>, <code>LeaveRequest</code>, <code>Payslip</code>: HR management with automated conflict detection and finalized salary snapshots with withholding tax.</li>
+</ul>
+
+<h3>Group H: System Reliability &amp; Outbox</h3>
+<ul>
+  <li><code>Job</code>: Transactional outbox records claimed by background workers.</li>
+  <li><code>MailMessage</code>: Queued and sent email notifications with retry tracking and audit redactions.</li>
+  <li><code>AuditLog</code>: Immutable operational event log recording actor ID, action, entity ID, and context.</li>
+</ul>
+
+<div class="page-break"></div>
+
+<!-- ========================================== -->
+<!-- CHAPTER 3: POSTGRESQL CONSTRAINTS & LOCKS -->
+<!-- ========================================== -->
+<h1>3. Concurrency Protection &amp; SQL Migrations</h1>
+
+<p>
+A common examiner question is: <em>"Why can't Prisma do everything? Why did you write custom SQL migrations?"</em><br>
+<strong>The Answer:</strong> Prisma ORM excels at standard relational mappings and CRUD, but cannot express advanced PostgreSQL engine-level primitives like <strong>GiST Exclusion Constraints</strong>, <strong>Transactional Advisory Locks</strong>, and <strong>Row-level Snapshot Triggers</strong>. These live in the versioned SQL migrations!
+</p>
+
+<h2>3.1 The GiST Exclusion Constraint (Zero Overlap Invariant)</h2>
+<p>In <code>prisma/migrations/202610030001_foundation/migration.sql</code>:</p>
+<pre><span class="kw">CREATE EXTENSION IF NOT EXISTS</span> btree_gist;
+
+<span class="kw">ALTER TABLE</span> <span class="str">"Reservation"</span> 
+<span class="kw">ADD CONSTRAINT</span> <span class="str">"court_no_overlap"</span> 
+<span class="kw">EXCLUDE USING gist</span> (
+  <span class="str">"courtId"</span> <span class="kw">WITH</span> =, 
+  tstzrange(<span class="str">"startsAt"</span>, <span class="str">"endsAt"</span>, <span class="str">'[)'</span>) <span class="kw">WITH</span> &amp;&amp;
+) <span class="kw">WHERE</span> (status <span class="kw">IN</span> (<span class="str">'HOLD'</span>, <span class="str">'CONFIRMED'</span>));</pre>
+
+<div class="callout callout-trap">
+  <strong>How This Defeats Concurrency Races (Examiner Viva Answer)</strong>
+  If two players click the exact same court and hour slot at the exact same millisecond:
+  <ol>
+    <li>Both requests arrive at different Node.js worker threads.</li>
+    <li>Both threads attempt to insert a <code>Reservation</code> with status <code>HOLD</code>.</li>
+    <li>The PostgreSQL storage engine evaluates the GiST index. It detects that the two time intervals <code>[startsAt, endsAt)</code> overlap (<code>&amp;&amp;</code>) for the identical <code>courtId</code> (<code>=</code>).</li>
+    <li>PostgreSQL allows transaction #1 to commit and <strong>instantly aborts transaction #2 with SQL error code 23P01 (Exclusion Violation)</strong>. Double-booking is mathematically impossible!</li>
+  </ol>
+</div>
+
+<h2>3.2 Deterministic Row-Level Locking (Deadlock Prevention)</h2>
+<p>When purchasing multiple inventory items or settling bills, how do we lock rows without deadlocking? Look at <code>src/modules/shop/service.ts</code>:</p>
+
+<pre><span class="kw">async function</span> <span class="fn">stockLock</span>(tx: Tx, ids: string[]) {
+  <span class="comment">// Sort variant IDs deterministically to prevent cyclic lock waits (deadlocks)!</span>
+  <span class="kw">for</span> (<span class="kw">const</span> id <span class="kw">of</span> [...<span class="kw">new</span> Set(ids)].sort())
+    <span class="kw">await</span> tx.$queryRaw`SELECT id FROM "ProductVariant" WHERE id=${id} FOR UPDATE`;
+}</pre>
+
+<div class="callout callout-info">
+  <strong>Why Sorting by ID Matters (Deadlock Explanation)</strong>
+  Suppose User A buys Item 1 and Item 2, while User B buys Item 2 and Item 1 simultaneously.<br>
+  Without sorting: User A locks 1 and waits for 2; User B locks 2 and waits for 1. <strong>Deadlock!</strong><br>
+  With <code>.sort()</code>: Both transactions must acquire lock on Item 1 first, then Item 2. One transaction waits cleanly without crashing!
+</div>
+
+<h2>3.3 PostgreSQL Advisory Locks</h2>
+<p>In <code>guard_daily_quota()</code> (migration <code>202610030002_operations</code>):</p>
+<pre><span class="kw">PERFORM</span> pg_advisory_xact_lock(hashtextextended(member_id, 0));</pre>
+<p>
+Locks the member's daily quota counter across concurrent transactions. If a member opens 3 tabs to book 3 courts simultaneously to exceed their 2-session daily limit, the advisory lock serializes the evaluation and rejects the 3rd booking!
+</p>
+
+<div class="page-break"></div>
+
+<!-- ========================================== -->
+<!-- CHAPTER 4: CORE INTERACTION WALKTHROUGHS -->
+<!-- ========================================== -->
+<h1>4. End-to-End Tracing of Core Interactions</h1>
+
+<p>
+This section details each operational flow: what the user sees, what API is called, what module executes it, the exact Prisma query, and what to say during the demo.
+</p>
+
+<!-- FEATURE 1: COURT BOOKING -->
+<h2>4.1 Feature 1: Booking a Court &amp; Concurrency Protection</h2>
+<div class="flow-box">
+  <span class="step-num">1</span> <strong>UI Layer:</strong> <code>src/app/book/page.tsx</code> &rarr; <code>src/components/courts-view.tsx</code><br>
+  <span class="step-num">2</span> <strong>Public API:</strong> <code>GET /api/public/availability?sport=tennis&amp;date=YYYY-MM-DD</code><br>
+  <span class="step-num">3</span> <strong>Hold API:</strong> <code>POST /api/operations/booking</code> (Idempotency-Key header)<br>
+  <span class="step-num">4</span> <strong>Domain Module:</strong> <code>src/modules/bookings/service.ts</code> &rarr; <code>holdBooking()</code><br>
+  <span class="step-num">5</span> <strong>Confirmation API:</strong> <code>PATCH /api/operations/booking/:id</code> with <code>action: "confirm"</code><br>
+  <span class="step-num">6</span> <strong>Billing Module:</strong> <code>src/modules/billing/service.ts</code> &rarr; <code>payInvoice()</code>
+</div>
+
+<h3>Under the Hood: Execution &amp; Prisma Code</h3>
+<ol>
+  <li><strong>Slot &amp; Quota Validation:</strong> Checks opening hours (06:00–23:00) and user's daily quota (2 sessions/day). Checks for active maintenance closures (<code>CourtClosure</code>).</li>
+  <li><strong>Benefit &amp; Price Calculation:</strong> Server reads active membership. Gold members get 20% discount; Silver members get 10%. If user has unused complimentary weekly sessions, price is &#8377;0.</li>
+  <li><strong>Hold Creation (Prisma Query):</strong>
+<pre><span class="kw">const</span> reservation = <span class="kw">await</span> tx.reservation.create({
+  data: {
+    userId: who.userId,
+    courtId: court.id,
+    startsAt,
+    endsAt,
+    clubDay: <span class="kw">new</span> Date(input.day),
+    status: <span class="str">"HOLD"</span>,
+    holdUntil: <span class="kw">new</span> Date(Date.now() + settings.holdMinutes * <span class="num">60000</span>), <span class="comment">// 5-min timeout</span>
+    pricePaise: price.totalPaise,
+    priceSnapshot: price.snapshot,
+  }
+});
+<span class="kw">const</span> invoice = <span class="kw">await</span> issueInvoice(tx, { department: <span class="str">"COURT"</span>, originId: reservation.id, ... });
+<span class="kw">await</span> job(tx, <span class="str">"EXPIRE_BOOKING"</span>, <span class="str">"booking-expiry:"</span> + reservation.id, { id: reservation.id }, holdUntil);</pre>
+  </li>
+  <li><strong>Immediate Release vs Worker Sweeper:</strong> If user closes modal, client calls <code>PATCH /api/operations/booking/:id</code> with <code>action: "cancel"</code>, releasing slot immediately. If user disconnects, the durable background worker sweeps expired holds.</li>
+</ol>
+
+<div class="callout callout-success">
+  <strong>Examiner Demo Script for Court Booking</strong>
+  <p><em>"Examiner, let me demonstrate our race-safe court booking. I am logged in as Aarav (Gold Member). I navigate to Book a Court, select Tennis, and click 07:00 AM on Centre Court. The UI immediately opens a checkout modal. On the server, a 5-minute cryptographic HOLD reservation and a snapshotted invoice in integer paise have been generated inside a single ACID transaction. Notice the 20% Gold discount automatically applied by the server."</em></p>
+  <p><em>"If another member tries to click this same slot right now, PostgreSQL's exclusion constraint and hold check will reject them with 'Someone has already reserved this session'. When I click Confirm, the system executes <code>payInvoice()</code>, marks the reservation <code>CONFIRMED</code>, and issues an immutable receipt."</em></p>
+</div>
+
+<div class="page-break"></div>
+
+<!-- FEATURE 2: BUYING STUFF & INVENTORY POS -->
+<h2>4.2 Feature 2: Buying Stuff (Pro-Shop Retail E-Commerce &amp; Counter POS)</h2>
+<div class="flow-box">
+  <span class="step-num">1</span> <strong>UI Layer:</strong> <code>src/app/shop/page.tsx</code> &rarr; <code>src/components/shop-catalog.tsx</code><br>
+  <span class="step-num">2</span> <strong>Cart Storage:</strong> Scoped by user ID in LocalStorage (prevents guest cart leak into member accounts).<br>
+  <span class="step-num">3</span> <strong>Checkout API:</strong> <code>POST /api/operations/order</code> with items, delivery flag, address.<br>
+  <span class="step-num">4</span> <strong>Domain Module:</strong> <code>src/modules/shop/service.ts</code> &rarr; <code>createOrder()</code><br>
+  <span class="step-num">5</span> <strong>Fulfillment API:</strong> <code>PATCH /api/operations/order/:id</code> (actions: <code>collect</code>, <code>dispatch</code>, <code>return</code>)
+</div>
+
+<h3>Under the Hood: Execution &amp; Prisma Code</h3>
+<ol>
+  <li><strong>Deterministic Stock Lock:</strong> Locks all product variant rows in ascending ID order:
+<pre><span class="kw">await</span> stockLock(tx, input.items.map(i => i.variantId));
+<span class="kw">for</span> (<span class="kw">const</span> item <span class="kw">of</span> input.items) {
+  <span class="kw">const</span> variant = <span class="kw">await</span> tx.productVariant.findUniqueOrThrow({ where: { id: item.variantId } });
+  assert(variant.stock - variant.reserved &gt;= item.quantity, <span class="str">"OUT_OF_STOCK"</span>, <span class="str">"Insufficient stock."</span>);
+  <span class="kw">await</span> tx.productVariant.update({
+    where: { id: item.variantId },
+    data: { reserved: { increment: item.quantity } } <span class="comment">// Atomically reserve stock</span>
+  });
+}</pre>
+  </li>
+  <li><strong>Fulfillment &amp; Restock:</strong> When cashier clicks "Collect" (pickup) or "Dispatch" (delivery), <code>reserved</code> is decremented and physical <code>stock</code> is permanently decremented. If an item is returned, the cashier specifies whether to restock or scrap damaged goods, generating a <code>StockMovement</code> audit row.</li>
+</ol>
+
+<div class="callout callout-success">
+  <strong>Examiner Demo Script for Retail POS</strong>
+  <p><em>"Examiner, let's explore our multi-channel retail system. The customer portal and the cashier counter share the exact same synchronized inventory pool. When an order is placed, stock is not blindly decremented—it transitions into a <code>reserved</code> state with a 5-minute expiry hold. This prevents phantom stock depletion if a customer abandons checkout."</em></p>
+  <p><em>"Now in the Staff Desk under Inventory, the cashier sees the pickup order, inspects the line items, and clicks 'Mark Collected'. Stock is permanently settled and an audited stock movement record is logged."</em></p>
+</div>
+
+<!-- FEATURE 3: MEMBERSHIPS -->
+<h2>4.3 Feature 3: Memberships, Junior Age-Checks &amp; Digital QR Pass</h2>
+<div class="flow-box">
+  <span class="step-num">1</span> <strong>UI Layer:</strong> <code>src/app/memberships/page.tsx</code> &amp; <code>src/app/account/page.tsx</code><br>
+  <span class="step-num">2</span> <strong>Purchase API:</strong> <code>POST /api/me/membership</code> with plan ID, action (purchase/renew)<br>
+  <span class="step-num">3</span> <strong>QR Card API:</strong> <code>GET /api/me/card</code> &rarr; Generates dynamic QR token via <code>qrcode</code> package.<br>
+  <span class="step-num">4</span> <strong>Domain Module:</strong> <code>src/modules/membership/service.ts</code> &rarr; <code>purchaseMembership()</code>
+</div>
+
+<h3>Under the Hood: Execution &amp; Prisma Code</h3>
+<ol>
+  <li><strong>Junior Plan Age Guard:</strong> If plan is <code>juniorOnly</code>, server checks the user's birthdate:
+<pre><span class="kw">const</span> age = ageAt(user.dateOfBirth, termStartsAt);
+assert(age &lt; <span class="num">18</span>, <span class="str">"JUNIOR_RESTRICTION"</span>, <span class="str">"Junior plans require the applicant to be under 18."</span>);</pre>
+  </li>
+  <li><strong>Contiguous Term Extension:</strong> If Aarav has 10 days remaining on his Gold Plan and renews, the new term starts <strong>on the exact second the current term expires</strong> (<code>endsAt</code>), preserving his remaining days!</li>
+  <li><strong>Digital Pass Security:</strong> The Member QR does not contain the database primary key. It contains an opaque crypto token (<code>token</code> in <code>MemberCard</code>). If compromised, the user can click "Revoke &amp; Reissue" without deleting their account.</li>
+</ol>
+
+<div class="page-break"></div>
+
+<!-- ========================================== -->
+<!-- CHAPTER 5: STAFF DESK ONE BY ONE -->
+<!-- ========================================== -->
+<h1>5. The Staff Desk Workspaces (Step-by-Step)</h1>
+
+<p>
+The Staff Desk (<code>/staff</code>) is the operational hub for Club Receptionists, Cashiers, Kitchen Staff, and Club Owners. Each workspace implements role-segregated UI and backend guards.
+</p>
+
+<!-- 5.1 RECEPTION -->
+<h2>5.1 Workspace 1: Reception (Calendar, QR Check-In &amp; Maintenance)</h2>
+<table>
+  <tr><th>Feature / Interaction</th><th>Backend API &amp; Service Function</th><th>What Happens Under the Hood</th></tr>
+  <tr>
+    <td><strong>Day Calendar Grid</strong></td>
+    <td><code>GET /api/operations/reception?day=YYYY-MM-DD</code></td>
+    <td>Loads hourly reservation matrix across all 4 sports. Filters closures and highlights confirmed slots vs holds.</td>
+  </tr>
+  <tr>
+    <td><strong>Single-Use QR Check-In</strong></td>
+    <td><code>PATCH /api/operations/booking/:id</code><br><code>action: "checkin"</code></td>
+    <td>Receptionist scans QR or searches Champions ID. Server validates that current time is within the <strong>30-minute arrival window</strong> before session start. Sets <code>checkedInAt = NOW()</code>. Subsequent scans are rejected as duplicates.</td>
+  </tr>
+  <tr>
+    <td><strong>Court Maintenance Closure</strong></td>
+    <td><code>POST /api/operations/closure</code></td>
+    <td>Schedules emergency or planned closure. PostgreSQL trigger <code>guard_court_calendar()</code> checks if active bookings exist on that interval and blocks closure until affected bookings are cancelled with reason.</td>
+  </tr>
+  <tr>
+    <td><strong>CRM Enquiries &amp; Quotes</strong></td>
+    <td><code>GET /api/operations/crm</code><br><code>PATCH /api/operations/crm/:id</code></td>
+    <td>Reception manages incoming public leads, assigns staff, logs activity notes, generates membership quotes, and converts leads to registered accounts.</td>
+  </tr>
+</table>
+
+<!-- 5.2 CASHIER & POS -->
+<h2>5.2 Workspace 2: Cashier POS &amp; Clubhouse Dining</h2>
+<table>
+  <tr><th>Feature / Interaction</th><th>Backend API &amp; Service Function</th><th>What Happens Under the Hood</th></tr>
+  <tr>
+    <td><strong>Opening Cash Float</strong></td>
+    <td><code>POST /api/staff/admin</code><br><code>action: "cashOpen"</code></td>
+    <td>Cashier counts drawer cash and logs opening float (e.g. &#8377;2,000 = 200,000 paise). The system locks the user to exactly <strong>one open cash shift</strong>. Cash cannot be accepted until a shift is open!</td>
+  </tr>
+  <tr>
+    <td><strong>Open Table Dining Order</strong></td>
+    <td><code>POST /api/operations/bill</code></td>
+    <td>Cashier selects table (e.g. Table 4), adds menu items (drinks, snacks), and enters member or guest ID. Enforces unique index: only one open bill per table. Alcohol requires verified 21+ birthdate or cashier override.</td>
+  </tr>
+  <tr>
+    <td><strong>Kitchen Tickets (KDS)</strong></td>
+    <td><code>POST /api/operations/kitchen</code></td>
+    <td>Items generate a <code>KitchenTicket</code> with revision 1. Kitchen sees ticket on live display and transitions state: <code>ACCEPTED &rarr; COOKING &rarr; READY</code>. Cashier marks <code>SERVED</code>. Uses optimistic locking (<code>version</code>) to reject stale updates.</td>
+  </tr>
+  <tr>
+    <td><strong>Member Tabs &amp; Overdue Guard</strong></td>
+    <td><code>PATCH /api/operations/bill/:id</code><br><code>action: "tab"</code></td>
+    <td>Charges dining bill to member's account. Checks that outstanding tab does not exceed <code>tabLimitPaise</code> (&#8377;5,000) and that no tab charges are overdue beyond <code>tabDueDays</code> (7 days).</td>
+  </tr>
+  <tr>
+    <td><strong>Closing Shift &amp; Float Audit</strong></td>
+    <td><code>POST /api/staff/admin</code><br><code>action: "cashClose"</code></td>
+    <td>Cashier enters counted physical cash. Server calculates: <code>Expected = OpeningFloat + Receipts - Refunds - Payouts</code>. If counted !== expected, cashier <strong>must submit an audited explanation</strong> before the shift closes!</td>
+  </tr>
+</table>
+
+<!-- 5.3 OWNER WORKSPACES -->
+<h2>5.3 Workspace 3: Owner Dashboard, HR Payroll &amp; Financial Reports</h2>
+<table>
+  <tr><th>Feature / Interaction</th><th>Backend API &amp; Service Function</th><th>What Happens Under the Hood</th></tr>
+  <tr>
+    <td><strong>Executive Financial Ledger</strong></td>
+    <td><code>GET /api/staff/reports?preset=month</code></td>
+    <td>Double-entry accounting summary. Computes billed revenue, collected payments, credit notes, and outstanding debt broken down by department and payment method. Clicking any figure drills down into supporting invoices!</td>
+  </tr>
+  <tr>
+    <td><strong>CSV Formula Injection Guard</strong></td>
+    <td><code>GET /api/staff/payroll-export</code></td>
+    <td>Sanitizes CSV cell values. Prepends single quote (<code>'</code>) to cells starting with <code>=, +, -, @</code> to prevent Excel formula injection attacks when opened in spreadsheets.</td>
+  </tr>
+  <tr>
+    <td><strong>Staff Shift Scheduling</strong></td>
+    <td><code>POST /api/staff/admin</code><br><code>action: "shift"</code></td>
+    <td>Owner assigns work shifts to employees. PostgreSQL GiST exclusion constraint (<code>shift_no_overlap</code>) and trigger prevent scheduling overlapping shifts or shifts during approved leave.</td>
+  </tr>
+  <tr>
+    <td><strong>Leave Approvals &amp; Payslips</strong></td>
+    <td><code>POST /api/staff/admin</code><br><code>action: "payslip"</code></td>
+    <td>Finalizes monthly payslips. Computes base salary, applies configured withholding tax basis points (<code>payrollTaxBps</code>), and stores an immutable JSON snapshot. Staff can view only their own payslips.</td>
+  </tr>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ========================================== -->
+<!-- CHAPTER 6: DURABLE WORKER & OUTBOX -->
+<!-- ========================================== -->
+<h1>6. The Durable Background Worker &amp; Transactional Outbox</h1>
+
+<p>
+The application runs an independent background daemon: <code>src/worker.ts</code>. It operates decoupled from Next.js web requests to guarantee that asynchronous jobs execute reliably even if web traffic spikes or server restarts occur.
+</p>
+
+<h2>6.1 The Transactional Outbox Pattern</h2>
+<p>
+When a court hold is created or a password reset is requested, the system does not immediately call an external email service or fire an untracked setTimeout. Doing so risks the <strong>dual-write failure problem</strong> (e.g. database commits, but email fails or Node process crashes).
+</p>
+<p>
+Instead, the business service inserts a record into the <code>Job</code> table <strong>inside the exact same ACID database transaction</strong>!
+</p>
+
+<h2>6.2 Job Claiming via <code>SKIP LOCKED</code></h2>
+<p>Look at <code>src/modules/mail/worker.ts</code>:</p>
+
+<pre><span class="kw">export async function</span> <span class="fn">processNextJob</span>() {
+  <span class="kw">const</span> jobs = <span class="kw">await</span> db.$queryRaw&lt;Job[]&gt;`
+    <span class="kw">UPDATE</span> <span class="str">"Job"</span> <span class="kw">SET</span> status=<span class="str">'RUNNING'</span>, <span class="str">"lockedAt"</span>=NOW(), attempts=attempts+1
+    <span class="kw">WHERE</span> id = (
+      <span class="kw">SELECT</span> id <span class="kw">FROM</span> <span class="str">"Job"</span> 
+      <span class="kw">WHERE</span> (status=<span class="str">'PENDING'</span> <span class="kw">AND</span> <span class="str">"runAt"</span>&lt;=NOW()) 
+         <span class="kw">OR</span> (status=<span class="str">'RUNNING'</span> <span class="kw">AND</span> <span class="str">"lockedAt"</span>&lt;NOW()-INTERVAL <span class="str">'5 minutes'</span>)
+      <span class="kw">ORDER BY</span> <span class="str">"runAt"</span> 
+      <span class="kw">FOR UPDATE SKIP LOCKED</span> 
+      <span class="kw">LIMIT</span> 1
+    )
+    <span class="kw">RETURNING</span> *`;
+  ...
+}</pre>
+
+<div class="callout callout-info">
+  <strong>Why This Is Industry-Standard Architecture</strong>
+  <ol>
+    <li><strong><code>FOR UPDATE SKIP LOCKED</code>:</strong> If you run 5 worker processes across a cluster, each worker grabs a pending job and instantly locks it. Other workers skip the locked row and grab the next job without blocking! No worker ever processes the same job twice.</li>
+    <li><strong>Zombie Job Recovery:</strong> If a worker process crashes mid-job, the row remains in <code>RUNNING</code> status. The clause <code>"lockedAt" &lt; NOW() - INTERVAL '5 minutes'</code> allows another worker to reclaim and complete the orphaned job!</li>
+    <li><strong>Scheduled Reminders:</strong> The worker automatically synchronizes 7-day, 1-day, and 0-day membership expiration reminders every 60 seconds without burdening web requests.</li>
+  </ol>
+</div>
+
+<div class="page-break"></div>
+
+<!-- ========================================== -->
+<!-- CHAPTER 7: KILLER VIVA QUESTIONS & ANSWERS -->
+<!-- ========================================== -->
+<h1>7. Top 15 Killer Viva Questions &amp; High-Score Answers</h1>
+
+<p>
+Memorize these responses. These are the exact high-difficulty questions examiners love to ask to distinguish top-tier engineers.
+</p>
+
+<h3>Q1: Why did you store money in integer paise instead of float or Decimal?</h3>
+<p><strong>Answer:</strong> <em>"In IEEE-754 floating-point arithmetic used by JavaScript, binary fractions cannot represent decimal fractions like 0.1 or 0.2 accurately. For instance, <code>0.1 + 0.2 === 0.30000000000000004</code>. In financial software, accumulating fractional rounding errors over thousands of ledger entries causes balance sheet discrepancies and auditing failures. By storing money as integer paise (1 INR = 100 paise), every addition, discount, and credit is exact to the integer."</em></p>
+
+<h3>Q2: What is the purpose of the <code>Idempotency-Key</code> header on mutations?</h3>
+<p><strong>Answer:</strong> <em>"If a customer clicks 'Pay' and their network drops before receiving the response, their mobile app or browser will automatically retry. Without idempotency, the server would charge their card or create an invoice twice. With our idempotency guard, the server hashes the actor ID, idempotency key, and request payload into the <code>Checkout</code> table. If an identical request arrives, the server returns the cached result with <code>replayed: true</code> without repeating the financial charge."</em></p>
+
+<h3>Q3: What happens if two members click the same court slot at the exact same millisecond?</h3>
+<p><strong>Answer:</strong> <em>"We defend against this at two layers. First, at the application layer, we acquire an exclusive row lock on the court via <code>courtLock()</code>. Second and most importantly, at the database engine level, we enforce a PostgreSQL GiST exclusion constraint (<code>EXCLUDE USING gist</code>) using the <code>btree_gist</code> extension. The database evaluates time interval overlaps in <code>[startsAt, endsAt)</code> for that court ID and rejects the colliding transaction with SQL error code <code>23P01</code>. Exactly one succeeds; the second receives an explicit slot-taken error."</em></p>
+
+<h3>Q4: Why do you store plan benefits as a JSON snapshot in the Membership table instead of just referencing <code>planId</code>?</h3>
+<p><strong>Answer:</strong> <em>"Membership plans evolve over time—the club owner might increase the price of the Gold Plan from &#8377;5,000 to &#8377;6,000 or lower court discounts from 20% to 15%. If we only referenced <code>planId</code>, an active member who paid &#8377;5,000 under the old contract would suddenly lose their promised benefits or have inaccurate historical invoices. By storing an immutable <code>planSnapshot</code> JSON object on the <code>Membership</code> row, the customer's agreed benefits remain frozen for their entire term."</em></p>
+
+<h3>Q5: Explain the difference between Invoice, Payment, and PaymentAllocation. Why three models?</h3>
+<p><strong>Answer:</strong> <em>"This follows standard double-entry accounting. An <strong>Invoice</strong> represents a debt or obligation to pay (billed revenue). A <strong>Payment</strong> represents real money received from a customer (cash, card, UPI, gateway). A <strong>PaymentAllocation</strong> represents the mapping between payment and debt. This separation enables real-world scenarios like partial payments (paying &#8377;1,000 toward a &#8377;3,000 bill), bulk payments (one payment settling three court bookings), and credit notes without corrupting past transaction history."</em></p>
+
+<h3>Q6: How does the Cash Shift Float Reconciliation prevent cashier theft?</h3>
+<p><strong>Answer:</strong> <em>"A cashier cannot accept cash without opening a shift and declaring their opening drawer float. Throughout the shift, every cash payment, cash refund, and cash payout automatically links to that cashier's active <code>cashShiftId</code> under a row lock. At closing, the cashier inputs physical counted cash. The system compares counted cash against calculated cash (<code>Opening + Receipts - Refunds - Payouts</code>). If there is any discrepancy, the system refuses to close the shift until the cashier provides an audited written reason."</em></p>
+
+<h3>Q7: How does your background worker avoid race conditions when multiple worker processes are running?</h3>
+<p><strong>Answer:</strong> <em>"We use the PostgreSQL query clause <code>FOR UPDATE SKIP LOCKED LIMIT 1</code>. When Worker A queries for a pending job, PostgreSQL locks that specific row and returns it. If Worker B queries concurrently, PostgreSQL skips the locked row and returns the next pending job. This provides lock-free, zero-conflict horizontal scalability across multiple background workers."</em></p>
+
+<h3>Q8: Why did you choose a Modular Monolith instead of Microservices?</h3>
+<p><strong>Answer:</strong> <em>"In an athletic sports club, consistency is paramount—a court booking must atomically create an invoice, reserve inventory, check member quotas, and enqueue notification jobs. In a microservices architecture, this requires complex distributed two-phase commits (2PC) or Sagas prone to network failure and partial state inconsistency. A modular monolith allows us to maintain strict module boundaries while executing critical multi-domain workflows inside single, lightning-fast PostgreSQL ACID transactions."</em></p>
+
+<div class="page-break"></div>
+
+<!-- ========================================== -->
+<!-- CHAPTER 8: QUICK DEMO EXECUTION CHEAT SHEET -->
+<!-- ========================================== -->
+<h1>8. Live Demonstration Cheat Sheet</h1>
+
+<table>
+  <tr><th>Step &amp; Scenario</th><th>Login Credentials</th><th>Exact Actions to Demonstrate</th></tr>
+  <tr>
+    <td><strong>1. Discover &amp; Enquire</strong></td>
+    <td>Public Visitor (No login)</td>
+    <td>
+      1. Open homepage (<code>http://localhost:3000</code>).<br>
+      2. Scroll to photographic sports selector (Tennis, Padel, Badminton, Cricket).<br>
+      3. Fill out public enquiry form (e.g. name, email, sport, inquiry message).<br>
+      4. Submit and verify success toast.
+    </td>
+  </tr>
+  <tr>
+    <td><strong>2. CRM &amp; Lead Intake</strong></td>
+    <td><code>reception@champions.local</code><br>Password: <code>Champions2026!</code></td>
+    <td>
+      1. Login as Receptionist.<br>
+      2. Navigate to Staff Desk &rarr; <strong>CRM &amp; Enquiries</strong> tab.<br>
+      3. Locate the new lead submitted in Step 1.<br>
+      4. Assign lead to staff, add an activity note, and generate a membership quote.
+    </td>
+  </tr>
+  <tr>
+    <td><strong>3. Member Court Booking</strong></td>
+    <td><code>member@champions.local</code><br>Password: <code>Champions2026!</code></td>
+    <td>
+      1. Login as Aarav (Gold Member).<br>
+      2. Navigate to <strong>Book a Court</strong> &rarr; Tennis &rarr; Select tomorrow 08:00 AM.<br>
+      3. Show 5-minute hold timer and server-applied 20% Gold Plan discount.<br>
+      4. Click "Confirm Local Payment" &rarr; Show invoice and confirmed booking.<br>
+      5. Open <strong>My Account</strong> &rarr; Show active QR Member Pass and itemized receipt.
+    </td>
+  </tr>
+  <tr>
+    <td><strong>4. Reception Check-In</strong></td>
+    <td><code>reception@champions.local</code><br>Password: <code>Champions2026!</code></td>
+    <td>
+      1. Switch to Reception session.<br>
+      2. Go to <strong>Reception &amp; Calendar</strong> tab.<br>
+      3. Search Aarav's booking or scan QR code.<br>
+      4. Execute Single-Use Check-In. Show arrival timestamp recorded and button disabled.
+    </td>
+  </tr>
+  <tr>
+    <td><strong>5. Retail Pro-Shop POS</strong></td>
+    <td><code>cashier@champions.local</code><br>Password: <code>Champions2026!</code></td>
+    <td>
+      1. Member visits Shop &rarr; Adds Tennis Racket to cart &rarr; Chooses Pickup &rarr; Checks out.<br>
+      2. Cashier opens Staff Desk &rarr; <strong>Inventory</strong> tab.<br>
+      3. Demonstrates reserved stock decrement.<br>
+      4. Marks item as "Collected" &rarr; Demonstrates physical stock reduction and audit entry.
+    </td>
+  </tr>
+  <tr>
+    <td><strong>6. Dining POS &amp; Kitchen Display</strong></td>
+    <td><code>cashier@champions.local</code> &amp;<br><code>kitchen@champions.local</code></td>
+    <td>
+      1. Cashier opens <strong>POS Dining</strong> &rarr; Selects Table 3 &rarr; Adds Clubhouse Sandwich &amp; Fresh Lime.<br>
+      2. Kitchen opens <strong>Kitchen KDS</strong> &rarr; Sees incoming ticket &rarr; Clicks "Accept" &rarr; "Cooking" &rarr; "Ready".<br>
+      3. Cashier marks items "Served".<br>
+      4. Settles bill via Member Tab &rarr; Closes table.
+    </td>
+  </tr>
+  <tr>
+    <td><strong>7. Cash Reconciliation &amp; Owner Audit</strong></td>
+    <td><code>owner@champions.local</code><br>Password: <code>Champions2026!</code></td>
+    <td>
+      1. Owner opens <strong>Reports &amp; Revenue</strong>.<br>
+      2. Filter by "This Month". Click on Court Booking revenue &rarr; Drills down into every supporting invoice.<br>
+      3. Inspect Cash Shifts tab &rarr; Shows audited opening floats and zero discrepancies.<br>
+      4. Open People &amp; Payroll &rarr; Show Neha's finalized payslip and print-ready tax withholding snapshot.
+    </td>
+  </tr>
+</table>
+
+<div style="margin-top: 30px; padding: 15px; border: 2px dashed #cbd5e0; text-align: center; border-radius: 6px;">
+  <strong style="color: #2b6cb0; font-size: 11pt;">End of Comprehensive Submission &amp; Viva Technical Guide</strong><br>
+  <span style="color: #718096; font-size: 8.5pt;">Prepared for Champions Club System Evaluation &middot; All Invariants &amp; Tests Verified against PostgreSQL 18</span>
+</div>
+
+</body>
+</html>

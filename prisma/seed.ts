@@ -92,22 +92,168 @@ async function main() {
   for (const [id, name, category, price, vegetarian, image] of menus) await db.menuItem.upsert({ where: { id }, create: { id, name, category, pricePaise: price * 100, vegetarian, description: "Freshly prepared at your clubhouse.", available: id !== "omelette", image: `/images/${image}` }, update: { image: `/images/${image}` } });
   for (let n = 1; n <= 8; n++) await db.diningTable.upsert({ where: { id: `table-${n}` }, create: { id: `table-${n}`, name: `Table ${n}`, capacity: n < 5 ? 4 : 6 }, update: {} });
   const password = await hashPassword("Champions2026!");
-  const users: [string, string, Role, string][] = [
-    ["member", "Aarav Mehta", "MEMBER", "1994-04-12"], ["new", "Ananya Rao", "MEMBER", "1998-08-21"],
-    ["junior", "Riya Shah", "MEMBER", "2011-06-15"], ["expired", "Karan Patel", "MEMBER", "1990-02-02"],
-    ["owner", "Priya Sharma", "OWNER", "1985-05-09"], ["reception", "Neha Singh", "RECEPTION", "1995-03-10"],
-    ["cashier", "Dev Kapoor", "CASHIER", "1996-12-20"], ["kitchen", "Kabir Khan", "KITCHEN", "1992-01-05"],
+
+  type SeedUser = {
+    id: string;
+    name: string;
+    email: string;
+    role: Role;
+    championsId: string;
+    birth: string;
+    phone: string;
+    tier?: "gold" | "silver" | "junior" | "expired-gold" | "expired-silver";
+    employee?: { title: string; salaryPaise: number };
+  };
+
+  const seedUsers: SeedUser[] = [
+    // --- Demo Base Accounts ---
+    { id: "demo-member", name: "Aarav Mehta", email: "member@champions.local", role: "MEMBER", championsId: "CC-DEMO-MEMBER", birth: "1994-04-12", phone: "+91 98765 43210", tier: "gold" },
+    { id: "demo-new", name: "Ananya Rao", email: "new@champions.local", role: "MEMBER", championsId: "CC-DEMO-NEW", birth: "1998-08-21", phone: "+91 98765 43211" },
+    { id: "demo-junior", name: "Riya Shah", email: "junior@champions.local", role: "MEMBER", championsId: "CC-DEMO-JUNIOR", birth: "2011-06-15", phone: "+91 98765 43212", tier: "junior" },
+    { id: "demo-expired", name: "Karan Patel", email: "expired@champions.local", role: "MEMBER", championsId: "CC-DEMO-EXPIRED", birth: "1990-02-02", phone: "+91 98765 43213", tier: "expired-silver" },
+    { id: "demo-owner", name: "Priya Sharma", email: "owner@champions.local", role: "OWNER", championsId: "CC-DEMO-OWNER", birth: "1985-05-09", phone: "+91 98765 43214" },
+    { id: "demo-reception", name: "Neha Singh", email: "reception@champions.local", role: "RECEPTION", championsId: "CC-DEMO-RECEPTION", birth: "1995-03-10", phone: "+91 98765 43215", employee: { title: "Reception associate", salaryPaise: 2800000 } },
+    { id: "demo-cashier", name: "Dev Kapoor", email: "cashier@champions.local", role: "CASHIER", championsId: "CC-DEMO-CASHIER", birth: "1996-12-20", phone: "+91 98765 43216", employee: { title: "Waiter / cashier", salaryPaise: 2600000 } },
+    { id: "demo-kitchen", name: "Kabir Khan", email: "kitchen@champions.local", role: "KITCHEN", championsId: "CC-DEMO-KITCHEN", birth: "1992-01-05", phone: "+91 98765 43217", employee: { title: "Kitchen chef", salaryPaise: 3500000 } },
+
+    // --- Gold Tier Members ---
+    { id: "user-gold-vikram", name: "Vikram Malhotra", email: "vikram.malhotra@champions.local", role: "MEMBER", championsId: "CC-GOLD-VIKRAM", birth: "1991-03-15", phone: "+91 98111 22334", tier: "gold" },
+    { id: "user-gold-sanya", name: "Sanya Mirza", email: "sanya.mirza@champions.local", role: "MEMBER", championsId: "CC-GOLD-SANYA", birth: "1989-11-20", phone: "+91 98222 33445", tier: "gold" },
+    { id: "user-gold-rohit", name: "Rohit Verma", email: "rohit.verma@champions.local", role: "MEMBER", championsId: "CC-GOLD-ROHIT", birth: "1993-07-08", phone: "+91 98333 44556", tier: "gold" },
+
+    // --- Silver Tier Members ---
+    { id: "user-silver-meera", name: "Meera Nair", email: "meera.nair@champions.local", role: "MEMBER", championsId: "CC-SILV-MEERA", birth: "1996-05-14", phone: "+91 98444 55667", tier: "silver" },
+    { id: "user-silver-rahul", name: "Rahul Dravid", email: "rahul.dravid@champions.local", role: "MEMBER", championsId: "CC-SILV-RAHUL", birth: "1992-09-25", phone: "+91 98555 66778", tier: "silver" },
+    { id: "user-silver-pooja", name: "Pooja Hegde", email: "pooja.hegde@champions.local", role: "MEMBER", championsId: "CC-SILV-POOJA", birth: "1995-12-02", phone: "+91 98666 77889", tier: "silver" },
+
+    // --- Junior Tier Members (<18) ---
+    { id: "user-jun-arjun", name: "Arjun Tendulkar", email: "arjun.tendulkar@champions.local", role: "MEMBER", championsId: "CC-JUN-ARJUN", birth: "2010-04-18", phone: "+91 98777 88990", tier: "junior" },
+    { id: "user-jun-zoya", name: "Zoya Akhtar", email: "zoya.akhtar@champions.local", role: "MEMBER", championsId: "CC-JUN-ZOYA", birth: "2011-08-30", phone: "+91 98888 99001", tier: "junior" },
+
+    // --- Expired Members ---
+    { id: "user-exp-deepak", name: "Deepak Chahar", email: "deepak.chahar@champions.local", role: "MEMBER", championsId: "CC-EXP-DEEPAK", birth: "1990-06-10", phone: "+91 98999 00112", tier: "expired-gold" },
+    { id: "user-exp-ishaan", name: "Ishaan Kishan", email: "ishaan.kishan@champions.local", role: "MEMBER", championsId: "CC-EXP-ISHAAN", birth: "1994-08-14", phone: "+91 98999 11223", tier: "expired-silver" },
+
+    // --- New / Guest Non-Members ---
+    { id: "user-new-tanvi", name: "Tanvi Sharma", email: "tanvi.sharma@champions.local", role: "MEMBER", championsId: "CC-NEW-TANVI", birth: "1999-01-22", phone: "+91 97111 11223" },
+    { id: "user-new-sid", name: "Siddharth Roy", email: "siddharth.roy@champions.local", role: "MEMBER", championsId: "CC-NEW-SID", birth: "1997-10-11", phone: "+91 97222 22334" },
+
+    // --- Additional Cashiers / POS Staff ---
+    { id: "staff-cash-manoj", name: "Manoj Bajpayee", email: "manoj.cashier@champions.local", role: "CASHIER", championsId: "CC-STF-MANOJ", birth: "1988-04-23", phone: "+91 97333 33445", employee: { title: "Senior POS Cashier", salaryPaise: 2800000 } },
+    { id: "staff-cash-kavita", name: "Kavita Krishnan", email: "kavita.cashier@champions.local", role: "CASHIER", championsId: "CC-STF-KAVITA", birth: "1994-02-17", phone: "+91 97444 44556", employee: { title: "Clubhouse Waiter & Cashier", salaryPaise: 2500000 } },
+
+    // --- Additional Reception Staff ---
+    { id: "staff-rec-sunil", name: "Sunil Gavaskar", email: "sunil.reception@champions.local", role: "RECEPTION", championsId: "CC-STF-SUNIL", birth: "1987-07-10", phone: "+91 97555 55667", employee: { title: "Front Desk & Court Supervisor", salaryPaise: 3200000 } },
+    { id: "staff-rec-aditi", name: "Aditi Ashok", email: "aditi.reception@champions.local", role: "RECEPTION", championsId: "CC-STF-ADITI", birth: "1993-03-29", phone: "+91 97666 66778", employee: { title: "Member Relations & Receptionist", salaryPaise: 2900000 } },
+
+    // --- Additional Kitchen Staff ---
+    { id: "staff-kit-sanjeev", name: "Sanjeev Kapoor", email: "sanjeev.kitchen@champions.local", role: "KITCHEN", championsId: "CC-STF-SANJEEV", birth: "1982-04-10", phone: "+91 97777 77889", employee: { title: "Executive Chef", salaryPaise: 4500000 } },
+    { id: "staff-kit-tarla", name: "Tarla Dalal", email: "tarla.kitchen@champions.local", role: "KITCHEN", championsId: "CC-STF-TARLA", birth: "1986-06-08", phone: "+91 97888 88990", employee: { title: "Sous Chef & Pastry", salaryPaise: 3400000 } },
+
+    // --- Additional Owners ---
+    { id: "staff-own-rajesh", name: "Rajesh Nambiar", email: "rajesh.owner@champions.local", role: "OWNER", championsId: "CC-OWN-RAJESH", birth: "1980-01-15", phone: "+91 99000 11223" },
   ];
-  for (const [slug, name, role, birth] of users) {
-    const id = `demo-${slug}`;
-    await db.user.upsert({ where: { id }, create: { id, name, email: `${slug}@champions.local`, emailVerified: true, role, championsId: `CC-DEMO-${slug.toUpperCase()}`, dateOfBirth: new Date(birth), phone: "+91 98765 43210" }, update: {} });
-    await db.account.upsert({ where: { providerId_accountId: { providerId: "credential", accountId: id } }, create: { id: `account-${slug}`, accountId: id, providerId: "credential", userId: id, password }, update: {} });
+
+  const planSnapshots = {
+    gold: { name: "Gold", durationDays: 90, courtDiscountBps: 2500, shopDiscountBps: 1500, foodDiscountBps: 1500, freeSessionsWeek: 2, pricePaise: 1200000 },
+    silver: { name: "Silver", durationDays: 90, courtDiscountBps: 1500, shopDiscountBps: 500, foodDiscountBps: 500, freeSessionsWeek: 0, pricePaise: 650000 },
+    junior: { name: "Junior", durationDays: 90, courtDiscountBps: 2000, shopDiscountBps: 1000, foodDiscountBps: 1000, freeSessionsWeek: 1, pricePaise: 350000 },
+  };
+
+  for (const u of seedUsers) {
+    await db.user.upsert({
+      where: { id: u.id },
+      create: {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        emailVerified: true,
+        role: u.role,
+        championsId: u.championsId,
+        dateOfBirth: new Date(u.birth),
+        phone: u.phone,
+      },
+      update: {
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        championsId: u.championsId,
+        dateOfBirth: new Date(u.birth),
+        phone: u.phone,
+      },
+    });
+
+    await db.account.upsert({
+      where: { providerId_accountId: { providerId: "credential", accountId: u.id } },
+      create: { id: `account-${u.id}`, accountId: u.id, providerId: "credential", userId: u.id, password },
+      update: { password },
+    });
+
+    // Create member QR identification card
+    if (u.role === "MEMBER") {
+      await db.memberCard.upsert({
+        where: { userId: u.id },
+        create: {
+          id: `card-${u.id}`,
+          userId: u.id,
+          token: `card-token-${u.id}`,
+          issuedAt: new Date(),
+        },
+        update: {},
+      });
+    }
+
+    // Create employee record for staff
+    if (u.employee) {
+      await db.employee.upsert({
+        where: { userId: u.id },
+        create: {
+          userId: u.id,
+          title: u.employee.title,
+          salaryPaise: u.employee.salaryPaise,
+          active: true,
+        },
+        update: {
+          title: u.employee.title,
+          salaryPaise: u.employee.salaryPaise,
+          active: true,
+        },
+      });
+    }
+
+    // Create active or expired membership
+    if (u.tier) {
+      const isExpired = u.tier.startsWith("expired-");
+      const basePlanId = (isExpired ? u.tier.replace("expired-", "") : u.tier) as "gold" | "silver" | "junior";
+      const snapshot = planSnapshots[basePlanId];
+
+      const startsAt = isExpired
+        ? new Date(Date.now() - 100 * 86400000)
+        : new Date(Date.now() - 15 * 86400000);
+      const endsAt = isExpired
+        ? new Date(Date.now() - 10 * 86400000)
+        : new Date(Date.now() + 75 * 86400000);
+
+      const existingMembership = await db.membership.findFirst({
+        where: { userId: u.id },
+      });
+
+      if (!existingMembership) {
+        await db.membership.create({
+          data: {
+            userId: u.id,
+            planId: basePlanId,
+            startsAt,
+            endsAt,
+            status: "ACTIVE",
+            planSnapshot: snapshot,
+            pricePaise: snapshot.pricePaise,
+          },
+        });
+      }
+    }
   }
-  for (const [slug, title, salaryPaise] of [["reception", "Reception associate", 2800000], ["cashier", "Waiter / cashier", 2600000], ["kitchen", "Kitchen chef", 3500000]] as const) {
-    await db.employee.upsert({ where: { userId: `demo-${slug}` }, create: { userId: `demo-${slug}`, title, salaryPaise }, update: {} });
-  }
-  if (!await db.membership.count({ where: { userId: "demo-member" } }) && process.env.PAYMENT_MODE === "local") await purchaseMembership("demo-member", "seed-gold", { planId: "gold", action: "purchase", acceptPolicy: true, planVersion: (await db.membershipPlan.findUniqueOrThrow({ where: { id: "gold" } })).updatedAt.toISOString() });
-  if (!await db.membership.count({ where: { userId: "demo-expired" } })) await db.membership.create({ data: { userId: "demo-expired", planId: "silver", startsAt: new Date(Date.now() - 100 * 86400000), endsAt: new Date(Date.now() - 10 * 86400000), pricePaise: 650000, planSnapshot: { name: "Silver", durationDays: 90, courtDiscountBps: 1500, shopDiscountBps: 500, foodDiscountBps: 500, freeSessionsWeek: 0 } } });
-  console.log("Seeded 4 sports, 11 courts, 3 plans, 36 products, 14 menu items and 8 demo accounts. Existing records preserved.");
+
+  console.log(`Seeded 4 sports, 11 courts, 3 plans, 36 products, 14 menu items, and ${seedUsers.length} users with comprehensive membership tiers and staff roles.`);
 }
 main().finally(() => db.$disconnect());

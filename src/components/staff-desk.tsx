@@ -18,7 +18,9 @@ import {
   Mail,
   ClipboardList,
   ArrowUpRight,
+  LayoutGrid,
 } from "lucide-react";
+import { StaffCourts } from "./staff-courts";
 import type { ClubSettings, MembershipPlan } from "@/generated/prisma/client";
 import { api } from "@/lib/api-client";
 import { money, date } from "@/lib/utils";
@@ -81,10 +83,13 @@ export function StaffDesk({
     },
     ...(["OWNER", "RECEPTION"].includes(role)
       ? [
+          { id: "courts", name: "Courts & slots", icon: LayoutGrid },
           { id: "reception", name: "Reception calendar", icon: ClipboardList },
           { id: "crm", name: "Enquiries & CRM", icon: Users },
         ]
-      : []),
+      : lookupAllowed
+        ? [{ id: "courts", name: "Courts & slots", icon: LayoutGrid }]
+        : []),
     ...(["OWNER", "CASHIER"].includes(role)
       ? [
           { id: "inventory", name: "Shop & inventory", icon: ClipboardList },
@@ -172,6 +177,7 @@ export function StaffDesk({
                   )}
                 </>
               )}
+              {tab === "courts" && <StaffCourts role={role} />}{" "}
               {tab === "reception" && <Reception plans={plans} />}{" "}
               {tab === "crm" && <CRM />} {tab === "inventory" && <Inventory />}{" "}
               {tab === "pos" && <POS />} {tab === "kitchen" && <Kitchen />}{" "}

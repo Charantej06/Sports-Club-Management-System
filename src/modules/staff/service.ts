@@ -44,3 +44,4 @@ export async function lookupMember(query: string) {
   const membership = await currentMembership(user.id);
   return { id: user.id, name: user.name, championsId: user.championsId, membership: membership ? { plan: membership.planSnapshot, endsAt: membership.endsAt } : null };
 }
+export * from "./courts";
